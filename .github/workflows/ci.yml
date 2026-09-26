@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: echogpt_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/echogpt_test?schema=public
+      JWT_ACCESS_SECRET: ci_access_secret_do_not_use_in_prod
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_SECRET: ci_refresh_secret_do_not_use_in_prod
+      JWT_REFRESH_EXPIRES_IN: 7d
+      PROVIDER_KEY_ENCRYPTION_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd
+      THROTTLE_TTL: 60
+      THROTTLE_LIMIT: 100
+      FREE_PLAN_DAILY_LIMIT: 20
+      PREMIUM_PLAN_DAILY_LIMIT: 1000
+      SEARCH_PROVIDER: serper
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Lint
+        run: npx eslint "src/**/*.ts"
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Run migrations against the Postgres service container
+        run: npx prisma migrate deploy
+
+      - name: Unit tests
+        run: npm run test:cov
+
+      - name: Build
+        run: npm run build
