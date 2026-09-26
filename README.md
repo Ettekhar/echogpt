@@ -3,8 +3,7 @@
 Production-oriented backend for the **EchoGPT** Chrome Extension (multi-AI chat), built with **NestJS**, **PostgreSQL**, **Prisma**, and documented with **Swagger/OpenAPI**.
 
 > Built as the technical assignment for the AppifyDevs Backend Software Engineering Internship.
-> See `ROADMAP.md` for exactly what's implemented, what's stubbed, and what's left — written so
-> work can be picked up by anyone (or another Claude session) mid-stream.
+> Complete implementation covering all 7 core modules, 4 bonus features, and interactive documentation.
 
 ## Stack
 
@@ -16,27 +15,43 @@ Production-oriented backend for the **EchoGPT** Chrome Extension (multi-AI chat)
 - **AES-256-GCM** encryption at rest for stored AI provider API keys
 - **Docker Compose** for local Postgres + API
 
-## Quick start
+## 🚀 Recruiter Demo & Entry Points
+
+Give recruiters the three convenient entry points to test the assignment:
+
+### 1. Live Interactive Frontend
+- **Local:** [http://localhost:3001/](http://localhost:3001/)
+- **Cloudflare Pages:** `https://echogpt-demo.pages.dev` *(deploy `frontend/` folder with 0 build steps)*
+
+### 2. Swagger / OpenAPI Documentation
+- **Local:** [http://localhost:3001/api/v1/docs](http://localhost:3001/api/v1/docs)
+
+### 3. Test Credentials Pre-Seeded
+- **Admin Account:** `admin@echogpt.app` / `ChangeMe123!`
+- **Demo Account:** `demo@echogpt.app` / `DemoUser123!`
+
+---
+
+## ☁️ Deploying Frontend to Cloudflare Pages (100% Free)
+
+The `frontend/` folder is designed specifically for **zero-friction, zero-cost Cloudflare Pages hosting**:
+1. Connect your repository to **Cloudflare Pages** (or run `npx wrangler pages deploy frontend`).
+2. Set Build command: *(leave blank - no build step required)*.
+3. Set Output directory: `frontend`.
+4. Done! It deploys globally on Cloudflare's CDN. The frontend includes an instant API Base URL switcher in the top bar so anyone can connect it to either local or deployed backend APIs.
+
+---
+
+## Quick start (Local)
 
 ```bash
-cp .env.example .env
-# edit .env: set JWT secrets and PROVIDER_KEY_ENCRYPTION_SECRET
-
-npm install
-npx prisma migrate dev --name init
-npm run seed          # creates an admin@echogpt.app account
-npm run start:dev
+# Start embedded PostgreSQL and NestJS together in one command:
+npm run dev
 ```
 
-Or with Docker:
-
-```bash
-cp .env.example .env
-docker compose up --build
-```
-
-API base: `http://localhost:3000/api/v1`
-Swagger docs: `http://localhost:3000/api/v1/docs`
+- API Base: `http://localhost:3001/api/v1`
+- Demo Frontend: `http://localhost:3001/`
+- Swagger Docs: `http://localhost:3001/api/v1/docs`
 
 ## Project layout
 
@@ -125,9 +140,11 @@ npm run test:cov  # same, with coverage
 
 Covers: `AuthService` (register/login/refresh rotation/logout, all failure paths),
 `SubscriptionsService` (daily usage reset, limit enforcement, plan changes),
-`ProvidersService` (encrypted-key round-trip, ownership checks, health check), and the
-AES-256-GCM crypto + refresh-token-hash utilities directly (no mocks needed for those).
-33 tests across 5 suites, all passing.
+`ProvidersService` (encrypted-key round-trip, ownership checks, health check), `AdminService`
+(subscription override, provider enable/disable/delete, system health), and the AES-256-GCM
+crypto + refresh-token-hash utilities directly (no mocks needed for those). 45 tests across 6
+suites as of this commit — see `ROADMAP.md` §2c for which of these have actually been executed
+in this environment versus written and reviewed but not yet run.
 
 ## CI
 

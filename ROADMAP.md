@@ -1,8 +1,7 @@
 # EchoGPT Backend — Roadmap & Handoff Notes
 
-This file exists so that work on this project can be **picked up by anyone (human or AI) at any
-point** without re-reading the whole codebase first. It tracks what's done, what's partial, and
-what's next, in priority order. Update it whenever you finish or start a chunk of work.
+This document tracks implementation status, architectural components, and milestones
+for the EchoGPT backend REST API.
 
 Assignment deadline: **29 September 2026**.
 
@@ -77,7 +76,9 @@ written and assumed to work:
 - `npx tsc --noEmit` (root tsconfig, matching what CI runs) — **zero errors**.
 - `npm test` — **33 tests passing across 5 suites** (AuthService, SubscriptionsService,
   ProvidersService, crypto util, token-hash util), all against mocked Prisma so no live DB
-  was needed to validate the business logic.
+  was needed to validate the business logic. This was true as of the round that wrote 2b;
+  `AdminService` (12 more tests) was added afterward in a network-restricted sandbox and has
+  **not** been run — see 2c.
 - `npm run build` — **`nest build` succeeds**, `dist/` produced with every module compiled.
 - `npm run generate:postman` — actually run: boots the real `AppModule` (with `PrismaService`
   swapped for a no-op stub purely so no DB connection is required), extracts the genuine

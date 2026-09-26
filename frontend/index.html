@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EchoGPT — Multi-AI Chat & Productivity Sidebar</title>
+  <meta name="description" content="EchoGPT Chrome Extension demo - Chat with GPT-4o, Claude, and Gemini in one unified sidebar anywhere on the web.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Top Demo Bar (Recruiter controls & navigation) -->
+  <header class="demo-topbar">
+    <div class="topbar-left">
+      <div class="brand-badge">
+        <span class="brand-logo">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
+            <path d="M2 12h20"></path>
+          </svg>
+        </span>
+        <span class="brand-title">EchoGPT <span class="tag-demo">Demo</span></span>
+      </div>
+
+      <div class="view-toggles" role="tablist">
+        <button id="btnViewSidebar" class="toggle-btn active" title="Simulate Chrome Extension sidebar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg>
+          Extension Sidebar
+        </button>
+        <button id="btnViewAdmin" class="toggle-btn" title="Open Admin Portal">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Admin Dashboard
+        </button>
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      <!-- API Connection Status & Config -->
+      <div class="api-status-pill" id="apiStatusPill" title="Click to change API Base URL">
+        <span class="status-dot"></span>
+        <span class="api-label" id="apiStatusLabel">Connecting...</span>
+      </div>
+
+      <a id="linkSwagger" href="http://localhost:3001/api/v1/docs" target="_blank" class="top-nav-link" title="Open Swagger OpenAPI Documentation">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Swagger Docs
+      </a>
+
+      <!-- Quick Auth Button / User Profile -->
+      <div id="userProfileArea">
+        <button id="btnOpenAuth" class="btn-auth-primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Sign In
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Viewport Area -->
+  <main class="viewport-container" id="viewportContainer">
+    
+    <!-- Simulated Browser Webpage Background (Chrome Extension Context) -->
+    <div class="mock-webpage" id="mockWebpage">
+      <div class="mock-browser-header">
+        <div class="browser-dots">
+          <span></span><span></span><span></span>
+        </div>
+        <div class="mock-search-bar">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <span class="url-text">https://tech-news-hub.com/article/ai-breakthroughs-2026</span>
+        </div>
+        <button id="btnToggleSidebarMock" class="extension-trigger-btn" title="Toggle EchoGPT Extension">
+          <span class="ext-icon">⚡</span> EchoGPT
+        </button>
+      </div>
+
+      <div class="mock-article-content">
+        <div class="hero-callout">
+          <div class="callout-pill">CHROME EXTENSION DEMO</div>
+          <h1>All your AI models. One unified sidebar.</h1>
+          <p class="hero-subtitle">Chat with GPT-4o, Claude 3.5, and Gemini, write emails, translate content, and perform live web searches anywhere on the web.</p>
+          <div class="hero-meta-badges">
+            <span class="badge-item"><span class="check-icon">✓</span> Multi-AI Model Switching</span>
+            <span class="badge-item"><span class="check-icon">✓</span> End-to-End Key Encryption</span>
+            <span class="badge-item"><span class="check-icon">✓</span> Pluggable Web Search</span>
+            <span class="badge-item"><span class="check-icon">✓</span> Tiered Usage Limits</span>
+          </div>
+        </div>
+
+        <div class="mock-sample-paragraphs">
+          <div class="mock-text-block">
+            <h3>Next-Generation Multi-Model Architecture</h3>
+            <p>Modern browser productivity extensions allow users to compare multiple AI models concurrently. EchoGPT connects directly to a secured NestJS backend powering real-time chat, web searching, and key encryption at rest.</p>
+          </div>
+          <div class="mock-feature-cards">
+            <div class="feat-card" onclick="window.EchoApp.quickPrompt('Summarize this article')">
+              <div class="feat-icon">📝</div>
+              <h4>Smart Summary</h4>
+              <p>Extract core highlights from any webpage in seconds.</p>
+            </div>
+            <div class="feat-card" onclick="window.EchoApp.quickPrompt('Explain quantum computing simply')">
+              <div class="feat-icon">💡</div>
+              <h4>Explain Concept</h4>
+              <p>Break down complex terms into simple, easy explanations.</p>
+            </div>
+            <div class="feat-card" onclick="window.EchoApp.switchTab('write')">
+              <div class="feat-icon">✍️</div>
+              <h4>Writing Studio</h4>
+              <p>Draft professional replies, emails, and social posts instantly.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EchoGPT Extension Floating Sidebar -->
+    <aside class="echogpt-sidebar" id="echogptSidebar">
+      
+      <!-- Sidebar Header -->
+      <div class="sidebar-top">
+        <div class="sidebar-brand">
+          <div class="sidebar-logo-mark">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4">
+              <circle cx="12" cy="12" r="10"></circle>
+              <circle cx="12" cy="12" r="4"></circle>
+              <line x1="4.93" y1="4.93" x2="9.17" y2="9.17"></line>
+              <line x1="14.83" y1="14.83" x2="19.07" y2="19.07"></line>
+              <line x1="14.83" y1="9.17" x2="19.07" y2="4.93"></line>
+              <line x1="4.93" y1="19.07" x2="9.17" y2="14.83"></line>
+            </svg>
+          </div>
+          <span class="sidebar-title">EchoGPT Sidebar</span>
+        </div>
+        <div class="sidebar-actions">
+          <button id="btnPinSidebar" class="action-icon-btn" title="Pin Sidebar">📌</button>
+          <button id="btnCloseSidebar" class="action-icon-btn" title="Close Sidebar">✕</button>
+        </div>
+      </div>
+
+      <!-- Sidebar Body Layout: Content Area + Right Slim Tab Bar -->
+      <div class="sidebar-layout">
+        
+        <!-- Center / Main Tab Content -->
+        <div class="sidebar-content" id="sidebarContent">
+          
+          <!-- TAB 1: CHAT -->
+          <div class="tab-pane active" id="paneChat">
+            <div class="pane-header">
+              <h2 class="pane-title">Chat</h2>
+              <div class="pane-header-actions">
+                <button id="btnNewChat" class="pill-btn primary" title="Start a fresh chat conversation">
+                  <span class="icon">+</span> New Chat
+                </button>
+                <button id="btnChatHistory" class="circle-icon-btn" title="View Conversation History">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Chat Scroll Area -->
+            <div class="chat-messages-container" id="chatMessages">
+              <!-- Welcome State (matches screenshot) -->
+              <div class="chat-welcome-state" id="chatWelcome">
+                <div class="greeting-sub">Hi, good afternoon</div>
+                <h3 class="greeting-main">How can I help you?</h3>
+
+                <!-- Quick Action Tiles (matches screenshot 1 & 2) -->
+                <div class="quick-tiles-grid">
+                  <button class="quick-tile" onclick="window.EchoApp.switchTab('write')">
+                    <span class="tile-icon purple">✍️</span>
+                    <span class="tile-label">Write</span>
+                  </button>
+                  <button class="quick-tile" onclick="window.EchoApp.switchTab('translate')">
+                    <span class="tile-icon blue">🌐</span>
+                    <span class="tile-label">Translate</span>
+                  </button>
+                  <button class="quick-tile" onclick="window.EchoApp.quickPrompt('Summarize the key points of this webpage')">
+                    <span class="tile-icon green">📄</span>
+                    <span class="tile-label">Read page</span>
+                  </button>
+                  <button class="quick-tile" onclick="window.EchoApp.quickPrompt('Explain this concept simply: Artificial Intelligence in 2026')">
+                    <span class="tile-icon pink">💡</span>
+                    <span class="tile-label">Explain</span>
+                  </button>
+                  <button class="quick-tile" onclick="window.EchoApp.switchTab('search')">
+                    <span class="tile-icon indigo">🔍</span>
+                    <span class="tile-label">Search Web</span>
+                  </button>
+                  <button class="quick-tile" onclick="window.EchoApp.switchTab('providers')">
+                    <span class="tile-icon amber">⚙️</span>
+                    <span class="tile-label">AI Models</span>
+                  </button>
+                </div>
+
+                <!-- Prompt Suggestions (matches screenshot) -->
+                <div class="prompt-suggestions">
+                  <button class="suggestion-chip" onclick="window.EchoApp.quickPrompt('Tell me an interesting fun fact')">
+                    Tell me an interesting fun fact
+                  </button>
+                  <button class="suggestion-chip" onclick="window.EchoApp.quickPrompt('Explain quantum computing in simple terms')">
+                    Explain quantum computing in simple terms
+                  </button>
+                  <button class="suggestion-chip" onclick="window.EchoApp.quickPrompt('Recommend 5 great sci-fi movies')">
+                    Recommend 5 great sci-fi movies
+                  </button>
+                  <button class="suggestion-chip" onclick="window.EchoApp.quickPrompt('How can I improve my English speaking skills?')">
+                    How can I improve my English speaking skills?
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Bottom Floating Chat Input Dock (matches screenshot) -->
+            <div class="chat-input-dock">
+              <div class="input-toolbar-top">
+                <!-- Provider Selector Dropdown -->
+                <div class="provider-dropdown-wrap">
+                  <button class="provider-pill-btn" id="btnProviderSelect">
+                    <span class="provider-dot"></span>
+                    <span id="lblCurrentProvider">EchoGPT (GPT-4o)</span>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                  </button>
+                  <div class="provider-menu" id="providerMenu">
+                    <div class="menu-item" data-provider="OPENAI" data-model="gpt-4o">
+                      <span class="p-dot openai"></span> OpenAI (GPT-4o)
+                    </div>
+                    <div class="menu-item" data-provider="CLAUDE" data-model="claude-3-5-sonnet">
+                      <span class="p-dot claude"></span> Anthropic (Claude 3.5 Sonnet)
+                    </div>
+                    <div class="menu-item active" data-provider="GEMINI" data-model="gemini-3.5-flash">
+                      <span class="p-dot gemini"></span> Google (Gemini 3.5 Flash)
+                    </div>
+                  </div>
+                </div>
+
+                <div class="dock-quick-icons">
+                  <button class="icon-tool-btn" id="btnToggleWebSearch" title="Toggle AI Web Search">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                    <span class="tool-badge-text">Search</span>
+                  </button>
+                  <button class="icon-tool-btn" id="btnStreamingToggle" title="Toggle Real-time Stream response">
+                    <span class="stream-icon">⚡</span>
+                    <span class="tool-badge-text">Stream</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="input-textarea-row">
+                <textarea id="txtChatInput" rows="1" placeholder="Ask a question..." autocomplete="off"></textarea>
+                <button id="btnSendChat" class="btn-send-round" title="Send message (Enter)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                  </svg>
+                </button>
+              </div>
+
+              <div class="input-footer-hint">
+                <span id="lblSearchIndicator" class="search-active-hint hidden">🌐 Web Search Enabled</span>
+                <span class="hint-key">Press Enter to send · Shift+Enter new line</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 2: WRITE (Matches screenshot 4) -->
+          <div class="tab-pane" id="paneWrite">
+            <div class="pane-header">
+              <h2 class="pane-title">Write Studio</h2>
+              <button class="pill-btn primary" onclick="window.EchoApp.resetWriteForm()">Clear</button>
+            </div>
+
+            <div class="write-scroll-content">
+              <!-- Mode Tabs: Compose, Reply, Grammar -->
+              <div class="segment-tabs" id="writeModeTabs">
+                <button class="seg-btn active" data-mode="compose">Compose</button>
+                <button class="seg-btn" data-mode="reply">Reply</button>
+                <button class="seg-btn" data-mode="grammar">Grammar</button>
+              </div>
+
+              <!-- Topic input -->
+              <div class="field-group">
+                <label class="field-label">TOPIC</label>
+                <textarea id="txtWriteTopic" rows="3" placeholder="The topic you want to write about..."></textarea>
+              </div>
+
+              <!-- Format pills (Matches screenshot 4) -->
+              <div class="field-group">
+                <label class="field-label">FORMAT</label>
+                <div class="pill-selection-row" id="pillsFormat">
+                  <button class="filter-pill active" data-val="Automatic">Automatic</button>
+                  <button class="filter-pill" data-val="Email">Email</button>
+                  <button class="filter-pill" data-val="Message">Message</button>
+                  <button class="filter-pill" data-val="Paragraph">Paragraph</button>
+                  <button class="filter-pill" data-val="Idea">Idea</button>
+                  <button class="filter-pill" data-val="Outline">Outline</button>
+                  <button class="filter-pill" data-val="Blog Post">Blog Post</button>
+                  <button class="filter-pill" data-val="Comment">Comment</button>
+                  <button class="filter-pill" data-val="Article">Article</button>
+                  <button class="filter-pill" data-val="Twitter">Twitter</button>
+                </div>
+              </div>
+
+              <!-- Tone pills (Matches screenshot 4) -->
+              <div class="field-group">
+                <label class="field-label">TONE</label>
+                <div class="pill-selection-row" id="pillsTone">
+                  <button class="filter-pill active" data-val="Automatic">Automatic</button>
+                  <button class="filter-pill" data-val="Formal">Formal</button>
+                  <button class="filter-pill" data-val="Casual">Casual</button>
+                  <button class="filter-pill" data-val="Friendly">Friendly</button>
+                  <button class="filter-pill" data-val="Professional">Professional</button>
+                  <button class="filter-pill" data-val="Straightforward">Straightforward</button>
+                  <button class="filter-pill" data-val="Confident">Confident</button>
+                  <button class="filter-pill" data-val="Funny">Funny</button>
+                  <button class="filter-pill" data-val="Enthusiastic">Enthusiastic</button>
+                </div>
+              </div>
+
+              <!-- Length pills (Matches screenshot 4) -->
+              <div class="field-group">
+                <label class="field-label">LENGTH</label>
+                <div class="pill-selection-row" id="pillsLength">
+                  <button class="filter-pill active" data-val="Automatic">Automatic</button>
+                  <button class="filter-pill" data-val="Short">Short</button>
+                  <button class="filter-pill" data-val="Medium">Medium</button>
+                  <button class="filter-pill" data-val="Long">Long</button>
+                </div>
+              </div>
+
+              <!-- Output Language -->
+              <div class="field-group">
+                <label class="field-label">OUTPUT LANGUAGE</label>
+                <select id="selWriteLanguage" class="custom-select">
+                  <option value="Automatic">Automatic</option>
+                  <option value="English">English</option>
+                  <option value="Spanish">Spanish</option>
+                  <option value="French">French</option>
+                  <option value="German">German</option>
+                  <option value="Japanese">Japanese</option>
+                  <option value="Bengali">Bengali</option>
+                </select>
+              </div>
+
+              <!-- Primary Generate Button -->
+              <div class="action-submit-row">
+                <button id="btnGenerateWrite" class="btn-primary-large">
+                  <span class="btn-sparkle">✦</span> Generate Content
+                </button>
+              </div>
+
+              <!-- Output Card -->
+              <div class="result-card hidden" id="writeResultCard">
+                <div class="card-header">
+                  <span class="card-title">Generated Result</span>
+                  <button class="btn-copy-small" onclick="window.EchoApp.copyWriteResult()">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    Copy
+                  </button>
+                </div>
+                <div class="card-body" id="writeResultBody"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 3: TRANSLATE (Matches screenshot 1 & 2) -->
+          <div class="tab-pane" id="paneTranslate">
+            <div class="pane-header">
+              <h2 class="pane-title">Translate</h2>
+            </div>
+
+            <div class="translate-container">
+              <div class="lang-switch-row">
+                <select id="selTransSource" class="lang-select">
+                  <option value="Automatic">Automatic (Detect)</option>
+                  <option value="English">English</option>
+                  <option value="Spanish">Spanish</option>
+                  <option value="French">French</option>
+                  <option value="German">German</option>
+                  <option value="Japanese">Japanese</option>
+                  <option value="Bengali">Bengali</option>
+                </select>
+                <button class="swap-lang-btn" id="btnSwapLanguages" title="Swap Languages">⇄</button>
+                <select id="selTransTarget" class="lang-select">
+                  <option value="English" selected>English</option>
+                  <option value="Spanish">Spanish</option>
+                  <option value="French">French</option>
+                  <option value="German">German</option>
+                  <option value="Japanese">Japanese</option>
+                  <option value="Bengali">Bengali</option>
+                </select>
+              </div>
+
+              <div class="field-group">
+                <textarea id="txtTranslateSource" rows="4" placeholder="Paste or enter your text to translate..."></textarea>
+              </div>
+
+              <button id="btnRunTranslate" class="btn-primary-large">
+                Translate Text
+              </button>
+
+              <div class="result-card hidden" id="transResultCard">
+                <div class="card-header">
+                  <span class="card-title">Translation</span>
+                  <button class="btn-copy-small" onclick="window.EchoApp.copyTranslateResult()">Copy</button>
+                </div>
+                <div class="card-body" id="transResultBody"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 4: WEB SEARCH -->
+          <div class="tab-pane" id="paneSearch">
+            <div class="pane-header">
+              <h2 class="pane-title">AI Web Search</h2>
+            </div>
+            <div class="search-pane-content">
+              <div class="search-input-box">
+                <input type="text" id="txtSearchQuery" placeholder="Search the web with AI answers..." />
+                <button id="btnExecuteSearch" class="btn-search-trigger">Search</button>
+              </div>
+
+              <div class="search-suggestions-row">
+                <span class="sugg-tag" onclick="window.EchoApp.runSearch('Latest breakthroughs in AI agents 2026')">Latest AI agents</span>
+                <span class="sugg-tag" onclick="window.EchoApp.runSearch('NestJS 10 production best practices')">NestJS best practices</span>
+                <span class="sugg-tag" onclick="window.EchoApp.runSearch('Cloudflare Pages vs Workers')">Cloudflare Pages</span>
+              </div>
+
+              <div class="search-results-area" id="searchResultsArea">
+                <div class="empty-hint">Enter any question above to search real web sources via backend Search API.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 5: AI PROVIDER KEYS (Matches assignment spec) -->
+          <div class="tab-pane" id="paneProviders">
+            <div class="pane-header">
+              <h2 class="pane-title">AI Providers</h2>
+              <button class="pill-btn primary" id="btnOpenAddProviderModal">+ Add Provider</button>
+            </div>
+            <div class="providers-list-container">
+              <p class="section-desc">Store your OpenAI, Claude, and Gemini API keys securely with AES-256-GCM encryption at rest.</p>
+              
+              <div id="providersList" class="providers-cards-grid">
+                <!-- Dynamically populated from GET /api/v1/providers -->
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 6: SUBSCRIPTION & USAGE -->
+          <div class="tab-pane" id="paneUsage">
+            <div class="pane-header">
+              <h2 class="pane-title">Usage & Subscription</h2>
+            </div>
+            <div class="usage-pane-content">
+              <div class="subscription-hero-card" id="subscriptionHero">
+                <div class="sub-badge" id="lblPlanBadge">FREE PLAN</div>
+                <h3 class="sub-headline">Daily API Quota</h3>
+                
+                <div class="quota-meter">
+                  <div class="meter-bar">
+                    <div class="meter-fill" id="meterFill" style="width: 10%;"></div>
+                  </div>
+                  <div class="meter-labels">
+                    <span id="lblRequestsUsed">0 used</span>
+                    <span id="lblDailyLimit">20 daily limit</span>
+                  </div>
+                </div>
+
+                <div class="plan-toggle-actions">
+                  <button id="btnUpgradePremium" class="btn-upgrade-glow">
+                    ⭐ Switch to Premium Plan
+                  </button>
+                  <button id="btnDowngradeFree" class="btn-sub-secondary">
+                    Switch to Free Plan
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right Slim Sidebar Navigation Bar (matches screenshot 1, 2, 3, 4, 5) -->
+        <nav class="sidebar-slim-nav" aria-label="Extension Navigation">
+          <div class="nav-icons-top">
+            <button class="nav-tab-btn active" data-tab="chat" title="Chat">
+              <span class="tab-icon">💬</span>
+              <span class="tab-label">Chat</span>
+            </button>
+            <button class="nav-tab-btn" data-tab="write" title="Write">
+              <span class="tab-icon">✍️</span>
+              <span class="tab-label">Write</span>
+            </button>
+            <button class="nav-tab-btn" data-tab="translate" title="Translate">
+              <span class="tab-icon">🌐</span>
+              <span class="tab-label">Translate</span>
+            </button>
+            <button class="nav-tab-btn" data-tab="search" title="Web Search">
+              <span class="tab-icon">🔍</span>
+              <span class="tab-label">Search</span>
+            </button>
+            <button class="nav-tab-btn" data-tab="providers" title="AI Providers">
+              <span class="tab-icon">⚡</span>
+              <span class="tab-label">Models</span>
+            </button>
+          </div>
+
+          <div class="nav-icons-bottom">
+            <button class="nav-tab-btn" data-tab="usage" title="Upgrade / Quota">
+              <span class="tab-icon">👑</span>
+              <span class="tab-label">Upgrade</span>
+            </button>
+            <button class="nav-tab-btn" id="btnAdminShortcut" title="Admin Portal">
+              <span class="tab-icon">🛡️</span>
+              <span class="tab-label">Admin</span>
+            </button>
+            <div class="user-avatar-badge" id="avatarBadge" title="Account profile">
+              M
+            </div>
+          </div>
+        </nav>
+
+      </div>
+    </aside>
+
+    <!-- FULL ADMIN PORTAL VIEW (For Recruiter Evaluation) -->
+    <section class="admin-portal-view hidden" id="adminPortalView">
+      <div class="admin-header-row">
+        <div>
+          <h1 class="admin-title">Admin Operations & Analytics</h1>
+          <p class="admin-subtitle">Real-time health, users, subscriptions, and AI provider audit logs from PostgreSQL.</p>
+        </div>
+        <div class="admin-actions">
+          <button id="btnRefreshAdminStats" class="btn-admin-action">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            Refresh Metrics
+          </button>
+          <button id="btnReturnToExtension" class="btn-admin-action primary">
+            ← Back to Extension View
+          </button>
+        </div>
+      </div>
+
+      <!-- Stat Metric Cards -->
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-head">
+            <span class="m-title">Total Users</span>
+            <span class="m-icon">👥</span>
+          </div>
+          <div class="m-value" id="valTotalUsers">—</div>
+          <div class="m-note">Registered in database</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-head">
+            <span class="m-title">Active Subscriptions</span>
+            <span class="m-icon">👑</span>
+          </div>
+          <div class="m-value" id="valActiveSubscriptions">—</div>
+          <div class="m-note">Premium & Free tiers</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-head">
+            <span class="m-title">Requests Processed</span>
+            <span class="m-icon">⚡</span>
+          </div>
+          <div class="m-value" id="valTotalRequests">—</div>
+          <div class="m-note">Tracked via UsageInterceptor</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-head">
+            <span class="m-title">System Health</span>
+            <span class="m-icon">💚</span>
+          </div>
+          <div class="m-value" id="valSystemHealth">ONLINE</div>
+          <div class="m-note" id="lblUptime">PostgreSQL: Connected</div>
+        </div>
+      </div>
+
+      <!-- Users & Activity Table -->
+      <div class="admin-table-container">
+        <div class="table-header-bar">
+          <h3>Registered Users (Prisma / Users table)</h3>
+          <span class="badge-role">Admin Access</span>
+        </div>
+        <div class="table-responsive">
+          <table class="admin-table" id="tblUsers">
+            <thead>
+              <tr>
+                <th>User ID</th>
+                <th>Email</th>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Verified</th>
+                <th>Status</th>
+                <th>Created At</th>
+              </tr>
+            </thead>
+            <tbody id="tblUsersBody">
+              <tr><td colspan="7" class="loading-cell">Loading registered users...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- AppifyDevs Internship Technical Evaluation & Architecture Overview -->
+      <div class="admin-table-container" style="margin-top:24px;background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:24px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px;border-bottom:1px solid #f1f5f9;padding-bottom:14px;">
+          <div>
+            <h3 style="font-size:16px;font-weight:700;color:#0f172a;margin-bottom:4px;">AppifyDevs Technical Evaluation — Assignment Compliance</h3>
+            <p style="font-size:12px;color:#64748b;">EchoGPT Backend REST API Development using NestJS, PostgreSQL & Swagger</p>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <a href="http://localhost:3001/api/v1/docs" target="_blank" class="pill-btn primary" style="font-size:11px;text-decoration:none;">📄 Interactive Swagger Docs</a>
+            <a href="http://localhost:3001/postman_collection.json" target="_blank" download class="pill-btn" style="background:#f1f5f9;font-size:11px;text-decoration:none;">📥 Postman Collection</a>
+            <a href="https://chromewebstore.google.com/detail/echogpt-multi-ai-chat-sid/negimdcamohmoheiifgecbjgjepkcfhj" target="_blank" class="pill-btn" style="background:#f8fafc;border:1px solid #e2e8f0;font-size:11px;text-decoration:none;">🔗 Chrome Extension Reference</a>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;">
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;">
+            <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:6px;">1. Authentication (JWT + Refresh)</div>
+            <ul style="font-size:11.5px;color:#475569;margin:0;padding-left:18px;line-height:1.6;">
+              <li><code>POST /api/v1/auth/register</code> — Bcrypt hash</li>
+              <li><code>POST /api/v1/auth/login</code> — JWT Access & Refresh</li>
+              <li><code>POST /api/v1/auth/refresh</code> — Token rotation</li>
+              <li><code>POST /api/v1/auth/logout</code> — Invalidate sessions</li>
+              <li><code>POST /api/v1/auth/verify-email</code> — Verification bonus</li>
+            </ul>
+          </div>
+
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;">
+            <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:6px;">2. User Management & Roles</div>
+            <ul style="font-size:11.5px;color:#475569;margin:0;padding-left:18px;line-height:1.6;">
+              <li><code>GET /api/v1/users/me</code> — User profile</li>
+              <li><code>PATCH /api/v1/users/me</code> — Update details</li>
+              <li><code>PATCH /api/v1/users/me/password</code> — Change password</li>
+              <li><code>DELETE /api/v1/users/me</code> — Soft/hard delete</li>
+              <li>Roles Guard: <code>ADMIN</code> vs <code>USER</code></li>
+            </ul>
+          </div>
+
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;">
+            <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:6px;">3. Subscription & Rate Limits</div>
+            <ul style="font-size:11.5px;color:#475569;margin:0;padding-left:18px;line-height:1.6;">
+              <li><code>GET /api/v1/subscriptions/status</code> — Current plan</li>
+              <li><code>GET /api/v1/subscriptions/usage</code> — Remaining requests</li>
+              <li><code>PATCH /api/v1/subscriptions/plan</code> — Free ↔ Premium</li>
+              <li>Daily request tracking with quota enforcement</li>
+            </ul>
+          </div>
+
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;">
+            <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:6px;">4. Multi-AI Provider Management</div>
+            <ul style="font-size:11.5px;color:#475569;margin:0;padding-left:18px;line-height:1.6;">
+              <li>Models: <strong>OpenAI, Claude, Google Gemini</strong></li>
+              <li><code>POST /api/v1/providers</code> — Encrypt key (AES-256-GCM)</li>
+              <li><code>POST /api/v1/providers/:id/health-check</code> — Live ping</li>
+              <li>Enable/Disable, default model selection</li>
+            </ul>
+          </div>
+
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;">
+            <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:6px;">5. Chat & Streaming API</div>
+            <ul style="font-size:11.5px;color:#475569;margin:0;padding-left:18px;line-height:1.6;">
+              <li><code>POST /api/v1/chat/messages</code> — AI prompt & response</li>
+              <li><code>POST /api/v1/chat/messages/stream</code> — SSE streaming bonus</li>
+              <li><code>GET /api/v1/chat/conversations</code> — History</li>
+              <li>Full multi-turn history passed to provider</li>
+            </ul>
+          </div>
+
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;">
+            <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:6px;">6. Web Search & AI Synthesis</div>
+            <ul style="font-size:11.5px;color:#475569;margin:0;padding-left:18px;line-height:1.6;">
+              <li><code>POST /api/v1/search/query</code> — Live web links + AI summary</li>
+              <li><code>GET /api/v1/search/history</code> & <code>recent</code> — Tracking</li>
+              <li><code>GET /api/v1/search/suggestions</code> — Autocomplete</li>
+              <li>30-minute query cache in PostgreSQL</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- AUTH MODAL (Login & Register with One-Click Demo Buttons) -->
+  <div class="modal-backdrop hidden" id="modalAuth">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-brand">
+          <span class="brand-logo-small">⚡</span>
+          <span class="modal-brand-title">EchoGPT Access</span>
+        </div>
+        <button class="modal-close" onclick="window.EchoApp.closeAuthModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-tagline">Sign in or create an account to test full backend capabilities.</p>
+
+        <!-- Recruiter One-Click Quick Logins -->
+        <div class="quick-recruiter-box">
+          <span class="quick-title">⚡ Recruiter One-Click Sign In:</span>
+          <div class="quick-buttons-row">
+            <button class="btn-quick-login" onclick="window.EchoApp.loginWithCredentials('admin@echogpt.app', 'ChangeMe123!')">
+              👑 Login as Admin
+            </button>
+            <button class="btn-quick-login secondary" onclick="window.EchoApp.loginWithCredentials('demo@echogpt.app', 'DemoUser123!')">
+              👤 Login as Demo User
+            </button>
+          </div>
+        </div>
+
+        <div class="divider-text"><span>OR USE EMAIL</span></div>
+
+        <form id="formAuth" onsubmit="window.EchoApp.handleAuthSubmit(event)">
+          <div class="form-group">
+            <label>Email Address</label>
+            <input type="email" id="authEmail" placeholder="you@example.com" required value="admin@echogpt.app">
+          </div>
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="authPassword" placeholder="••••••••••••" required value="ChangeMe123!">
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn-primary-large" id="btnSubmitLogin">Sign In</button>
+            <button type="button" class="btn-sub-secondary" id="btnSubmitRegister" onclick="window.EchoApp.handleRegister()">Create New Account</button>
+          </div>
+        </form>
+
+        <div id="authErrorNotice" class="error-notice hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD PROVIDER MODAL -->
+  <div class="modal-backdrop hidden" id="modalAddProvider">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <span class="modal-brand-title">Configure AI Provider</span>
+        <button class="modal-close" onclick="window.EchoApp.closeProviderModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="formAddProvider" onsubmit="window.EchoApp.handleAddProviderSubmit(event)">
+          <div class="form-group">
+            <label>Provider Name</label>
+            <select id="newProviderName" class="custom-select" required>
+              <option value="" disabled selected>-- Select provider --</option>
+              <option value="OPENAI">OpenAI</option>
+              <option value="CLAUDE">Anthropic Claude</option>
+              <option value="GEMINI">Google Gemini</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>API Key</label>
+            <input type="password" id="newProviderKey" placeholder="sk-..." required>
+            <small class="field-hint">Encrypted with AES-256-GCM before saving into PostgreSQL.</small>
+          </div>
+          <div class="form-group">
+            <label>Label</label>
+            <input type="text" id="newProviderLabel" placeholder="e.g. Gemini 1.5 / Flash">
+          </div>
+          <div class="form-group">
+            <label>Model (Optional)</label>
+            <input type="text" id="newProviderModel" placeholder="e.g. gemini-flash-latest, gemini-3.5-flash">
+            <small class="field-hint">Leave blank to use provider default (e.g. gemini-flash-latest, gpt-4o).</small>
+          </div>
+          <div class="form-group">
+            <label>Base URL (Optional)</label>
+            <input type="url" id="newProviderBaseUrl" placeholder="https://generativelanguage.googleapis.com/v1beta">
+            <small class="field-hint">Leave blank to use official API endpoint.</small>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary-large">Save Encrypted Key</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- API URL CONFIG MODAL (Essential for Cloudflare Pages Demo) -->
+  <div class="modal-backdrop hidden" id="modalConfigApi">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <span class="modal-brand-title">API Connection Settings</span>
+        <button class="modal-close" onclick="window.EchoApp.closeApiModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-tagline">Set the backend API endpoint for this demo frontend.</p>
+        <div class="form-group">
+          <label>API Base URL</label>
+          <input type="url" id="txtApiBaseUrl" placeholder="http://localhost:3001/api/v1">
+          <small class="field-hint">When hosted on Cloudflare Pages, set this to your public Cloudflare Worker or backend URL.</small>
+        </div>
+        <div class="quick-buttons-row" style="margin-top: 12px;">
+          <button type="button" class="btn-quick-login secondary" onclick="document.getElementById('txtApiBaseUrl').value = 'http://localhost:3001/api/v1'">
+            Localhost (3001)
+          </button>
+        </div>
+        <div class="form-actions" style="margin-top: 18px;">
+          <button type="button" class="btn-primary-large" onclick="window.EchoApp.saveApiBaseUrl()">Save & Reconnect</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
