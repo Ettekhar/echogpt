@@ -23,6 +23,29 @@ async function main() {
   });
 
   console.log('Seeded admin user:', admin.email, '(password: ChangeMe123!)');
+
+  try {
+    const { encryptSecret } = require('../src/common/utils/crypto.util');
+    const rawApiKey = process.env.GEMINI_API_KEY || 'AIzaSyDemoKeyReplaceInDashboard';
+    const encKey = encryptSecret(rawApiKey);
+    await prisma.aiProvider.deleteMany({ where: { userId: admin.id } });
+    await prisma.aiProvider.create({
+      data: {
+        userId: admin.id,
+        name: 'GEMINI',
+        label: 'Google Gemini (Flash)',
+        model: 'gemini-flash-latest',
+        encryptedApiKey: encKey,
+        isEnabled: true,
+        isDefault: true,
+        lastHealthCheck: new Date(),
+        lastHealthy: true,
+      },
+    });
+    console.log('Seeded Gemini provider for admin user');
+  } catch (err) {
+    console.log('Note: could not seed Gemini provider:', err.message);
+  }
 }
 
 main()

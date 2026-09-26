@@ -17,18 +17,76 @@ export class ProvidersService {
       await this.clearExistingDefault(userId);
     }
 
-    const provider = await this.prisma.aiProvider.create({
-      data: {
+    const { model, label, baseUrl } = this.sanitizeProviderInput(dto);
+
+    const existing = await this.prisma.aiProvider.findFirst({
+      where: {
         userId,
         name: dto.name,
-        label: dto.label,
-        model: dto.model,
-        baseUrl: dto.baseUrl,
-        isDefault: dto.isDefault ?? false,
-        encryptedApiKey: encryptSecret(dto.apiKey),
+        ...(label ? { label } : {}),
       },
     });
+
+    let provider;
+    if (existing) {
+      provider = await this.prisma.aiProvider.update({
+        where: { id: existing.id },
+        data: {
+          label: label ?? existing.label,
+          model: model ?? existing.model,
+          baseUrl: baseUrl ?? existing.baseUrl,
+          isDefault: dto.isDefault ?? existing.isDefault,
+          isEnabled: true,
+          encryptedApiKey: encryptSecret(dto.apiKey),
+        },
+      });
+    } else {
+      provider = await this.prisma.aiProvider.create({
+        data: {
+          userId,
+          name: dto.name,
+          label,
+          model,
+          baseUrl,
+          isDefault: dto.isDefault ?? false,
+          encryptedApiKey: encryptSecret(dto.apiKey),
+        },
+      });
+    }
+
     return this.toSafeDto(provider, dto.apiKey);
+  }
+
+  private sanitizeProviderInput(dto: { name: string; label?: string; model?: string; baseUrl?: string }) {
+    let model = dto.model?.trim()?.replace(/^models\//i, '')?.replace(/\s+/g, '-');
+    let label = dto.label?.trim();
+
+    // If model is empty, but label looks like a model name, use label as model
+    if (!model && label) {
+      const cleanLabel = label.toLowerCase().replace(/^models\//i, '').replace(/\s+/g, '-');
+      if (cleanLabel.startsWith('gemini') || cleanLabel.startsWith('gpt') || cleanLabel.startsWith('claude')) {
+        model = cleanLabel;
+      }
+    }
+
+    // Default models per provider if still empty
+    if (!model) {
+      if (dto.name === 'GEMINI') model = 'gemini-3.5-flash';
+      else if (dto.name === 'OPENAI') model = 'gpt-4o';
+      else if (dto.name === 'CLAUDE') model = 'claude-3-5-sonnet-20241022';
+    }
+
+    // Default label if empty
+    if (!label) {
+      label = `${dto.name} (${model})`;
+    }
+
+    let baseUrl = dto.baseUrl?.trim();
+    if (baseUrl) {
+      baseUrl = baseUrl.replace(/\/+$/, '');
+    }
+
+    return { model, label, baseUrl };
   }
 
   async findAll(userId: string) {
@@ -94,7 +152,7 @@ export class ProvidersService {
       where: { id },
       data: { lastHealthCheck: new Date(), lastHealthy: healthy },
     });
-    return { id: updated.id, healthy, checkedAt: updated.lastHealthCheck };
+    return { id: updated.id, healthy, isHealthy: healthy, checkedAt: updated.lastHealthCheck };
   }
 
   private async clearExistingDefault(userId: string) {

@@ -16,6 +16,7 @@ describe('ProvidersService', () => {
     prisma = {
       aiProvider: {
         create: jest.fn((args) => ({ id: 'p1', userId: args.data.userId, ...args.data })),
+        findFirst: jest.fn().mockResolvedValue(null),
         findMany: jest.fn(),
         findUnique: jest.fn(),
         update: jest.fn((args) => ({ id: args.where.id, ...args.data })),
