@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum PlanType {
+  FREE
+  PREMIUM
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  EXPIRED
+  PAST_DUE
+}
+
+enum ProviderName {
+  OPENAI
+  CLAUDE
+  GEMINI
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  passwordHash      String
+  name              String?
+  role              Role      @default(USER)
+  isEmailVerified   Boolean   @default(false)
+  emailVerifyToken  String?
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+
+  sessions          Session[]
+  subscription      Subscription?
+  providers         AiProvider[]
+  conversations     Conversation[]
+  searches          WebSearch[]
+  usageLogs         ApiUsageLog[]
+}
+
+model Session {
+  id            String    @id @default(uuid())
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String
+  refreshToken  String    @unique
+  userAgent     String?
+  ip            String?
+  revoked       Boolean   @default(false)
+  expiresAt     DateTime
+  createdAt     DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model Subscription {
+  id            String              @id @default(uuid())
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String              @unique
+  plan          PlanType            @default(FREE)
+  status        SubscriptionStatus  @default(ACTIVE)
+  dailyLimit    Int                 @default(20)
+  requestsUsed  Int                 @default(0)
+  usageResetAt  DateTime            @default(now())
+  startedAt     DateTime            @default(now())
+  renewsAt      DateTime?
+  canceledAt    DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+}
+
+model AiProvider {
+  id              String        @id @default(uuid())
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String
+  name            ProviderName
+  label           String?
+  encryptedApiKey String
+  isEnabled       Boolean       @default(true)
+  isDefault       Boolean       @default(false)
+  baseUrl         String?
+  model           String?
+  lastHealthCheck DateTime?
+  lastHealthy     Boolean?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  messages        Message[]
+
+  @@index([userId])
+  @@unique([userId, name, label])
+}
+
+model Conversation {
+  id          String    @id @default(uuid())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  title       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  messages    Message[]
+
+  @@index([userId])
+}
+
+model Message {
+  id              String        @id @default(uuid())
+  conversation    Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId  String
+  provider        AiProvider?   @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  providerId      String?
+  role            MessageRole
+  content         String        @db.Text
+  tokensUsed      Int?
+  createdAt       DateTime      @default(now())
+
+  @@index([conversationId])
+}
+
+model WebSearch {
+  id          String    @id @default(uuid())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  query       String
+  resultsJson Json?
+  cached      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([query])
+}
+
+model ApiUsageLog {
+  id          String    @id @default(uuid())
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId      String?
+  method      String
+  path        String
+  statusCode  Int
+  durationMs  Int
+  ip          String?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
