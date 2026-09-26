@@ -2,11 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { SearchProviderAdapter } from './search-provider.interface';
 import { SerperSearchAdapter } from './serper.adapter';
 import { BraveSearchAdapter } from './brave.adapter';
+import { DuckDuckGoSearchAdapter } from './duckduckgo.adapter';
 
 /**
  * Picks the active search backend from SEARCH_PROVIDER ("serper" | "brave"). Defaults to
- * "serper". If neither provider's API key is configured, getActive() returns null and
- * SearchService falls back to a clear "not configured" response instead of throwing.
+ * "serper" if key exists, then "brave" if key exists, and falls back to DuckDuckGo search
+ * so searches always provide results even without commercial API keys.
  */
 @Injectable()
 export class SearchProviderFactory {
@@ -15,17 +16,25 @@ export class SearchProviderFactory {
   constructor(
     private serper: SerperSearchAdapter,
     private brave: BraveSearchAdapter,
+    private duckduckgo: DuckDuckGoSearchAdapter,
   ) {}
 
-  getActive(): SearchProviderAdapter | null {
-    const provider = (process.env.SEARCH_PROVIDER || 'serper').toLowerCase();
+  getActive(): SearchProviderAdapter {
+    const provider = (process.env.SEARCH_PROVIDER || '').toLowerCase();
 
-    if (provider === 'brave') {
-      if (!process.env.BRAVE_SEARCH_API_KEY) return null;
+    if (provider === 'brave' && process.env.BRAVE_SEARCH_API_KEY) {
       return this.brave;
     }
-    // default: serper
-    if (!process.env.SERPER_API_KEY) return null;
-    return this.serper;
+    if (provider === 'serper' && process.env.SERPER_API_KEY) {
+      return this.serper;
+    }
+    if (process.env.SERPER_API_KEY) {
+      return this.serper;
+    }
+    if (process.env.BRAVE_SEARCH_API_KEY) {
+      return this.brave;
+    }
+
+    return this.duckduckgo;
   }
 }

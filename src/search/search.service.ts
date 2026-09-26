@@ -1,7 +1,11 @@
 import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
+import { ProvidersService } from '../providers/providers.service';
+import { ProviderAdapterFactory } from '../providers/adapters/provider-adapter.factory';
+import { decryptSecret } from '../common/utils/crypto.util';
 import { SearchProviderFactory } from './adapters/search-provider.factory';
+import { SearchResultItem } from './adapters/search-provider.interface';
 
 /** Cache window: identical queries within this many minutes reuse the stored result. */
 const CACHE_WINDOW_MINUTES = 30;
@@ -12,6 +16,8 @@ export class SearchService {
     private prisma: PrismaService,
     private subscriptionsService: SubscriptionsService,
     private searchProviderFactory: SearchProviderFactory,
+    private providersService: ProvidersService,
+    private adapterFactory: ProviderAdapterFactory,
   ) {}
 
   async search(userId: string, query: string) {
@@ -20,7 +26,15 @@ export class SearchService {
       await this.prisma.webSearch.create({
         data: { userId, query, resultsJson: cached.resultsJson as any, cached: true },
       });
-      return { query, results: cached.resultsJson, cached: true };
+      const c = cached.resultsJson as any;
+      return {
+        query,
+        answer: c.answer || c.summary || 'Cached search complete.',
+        summary: c.answer || c.summary || 'Cached search complete.',
+        results: Array.isArray(c.results) ? c.results : (c.items || []),
+        items: Array.isArray(c.results) ? c.results : (c.items || []),
+        cached: true,
+      };
     }
 
     const allowed = await this.subscriptionsService.tryConsumeUsage(userId);
@@ -31,36 +45,58 @@ export class SearchService {
     }
 
     const provider = this.searchProviderFactory.getActive();
-    let results: unknown;
+    let items: SearchResultItem[] = [];
 
-    if (!provider) {
-      // No SERPER_API_KEY / BRAVE_SEARCH_API_KEY configured - degrade gracefully
-      // instead of failing the request outright.
-      results = {
-        configured: false,
-        message:
-          'No web search provider is configured. Set SERPER_API_KEY or BRAVE_SEARCH_API_KEY ' +
-          '(and SEARCH_PROVIDER) in .env to enable live results.',
-        items: [],
-      };
-    } else {
+    try {
+      items = await provider.search(query);
+    } catch {
+      items = [];
+    }
+
+    let answer = '';
+    if (items.length > 0) {
       try {
-        const items = await provider.search(query);
-        results = { configured: true, items };
-      } catch (err) {
-        results = {
-          configured: true,
-          error: (err as Error).message,
-          items: [],
-        };
+        const defaultProvider = await this.providersService.getDefault(userId);
+        if (defaultProvider) {
+          const adapter = this.adapterFactory.get(defaultProvider.name as any);
+          const apiKey = decryptSecret(defaultProvider.encryptedApiKey);
+          const snippets = items
+            .slice(0, 5)
+            .map((item, i) => `[${i + 1}] ${item.title}: ${item.snippet}`)
+            .join('\n\n');
+          const prompt = `Based on these web search results for "${query}", provide a concise, informative summary answer:\n\n${snippets}`;
+          const aiRes = await adapter.chat({
+            apiKey,
+            model: defaultProvider.model || undefined,
+            messages: [{ role: 'user', content: prompt }],
+          });
+          answer = aiRes.content;
+        }
+      } catch {
+        // Fall back gracefully
       }
     }
 
+    if (!answer) {
+      answer = items.length > 0
+        ? `Found ${items.length} relevant web sources for "${query}".`
+        : `No web results found for "${query}".`;
+    }
+
+    const responsePayload = {
+      query,
+      answer,
+      summary: answer,
+      results: items,
+      items,
+      cached: false,
+    };
+
     await this.prisma.webSearch.create({
-      data: { userId, query, resultsJson: results as any, cached: false },
+      data: { userId, query, resultsJson: responsePayload as any, cached: false },
     });
 
-    return { query, results, cached: false };
+    return responsePayload;
   }
 
   async history(userId: string, page = 1, pageSize = 20) {
