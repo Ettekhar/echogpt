@@ -224,9 +224,18 @@ $env:GEMINI_KEY = "<your key>"; npm run verify:e2e
 # 21 checks: seeded accounts, every /admin endpoint, per-user views/overrides,
 # the seeded provider's health check, and the Swagger spec.
 npm run verify:admin
+
+# 27 checks: email verification, change password, plan downgrade/cancel and the
+# usage limit it triggers, search caching, conversation lifecycle, cross-user
+# access control, and account deletion.
+$env:GEMINI_KEY = "<your key>"; npm run verify:bonus
+
+# Applies the init migration to a throwaway database and diffs it against
+# schema.prisma. Exits non-zero on drift.
+npm run verify:migration
 ```
 
-Both scripts accept a base URL argument (`node scripts/e2e-verify.js https://your-api/api/v1`),
+All scripts accept a base URL argument (`node scripts/verify-e2e.js https://your-api/api/v1`),
 so they can be pointed at a deployed environment. The Gemini key is read from
 `GEMINI_KEY` at runtime and is never written to disk.
 

@@ -152,10 +152,28 @@ export class ProvidersService {
     const provider = await this.prisma.aiProvider.findFirst({
       where: { userId, isDefault: true, isEnabled: true },
     });
-    if (!provider) {
-      throw new NotFoundException('No default AI provider configured. Add one first.');
+    if (provider) return provider;
+
+    // No explicit default. Rather than 404 on the very common "I added one
+    // provider, now let me chat" path, adopt a lone enabled provider as the
+    // default. With two or more the choice is genuinely ambiguous, so we still
+    // ask the user to pick one.
+    const enabled = await this.prisma.aiProvider.findMany({
+      where: { userId, isEnabled: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (enabled.length === 1) {
+      return this.prisma.aiProvider.update({
+        where: { id: enabled[0].id },
+        data: { isDefault: true },
+      });
     }
-    return provider;
+
+    throw new NotFoundException(
+      enabled.length === 0
+        ? 'No enabled AI provider configured. Add one first.'
+        : 'No default AI provider configured. Set one as default first.',
+    );
   }
 
   async healthCheck(userId: string, id: string) {
