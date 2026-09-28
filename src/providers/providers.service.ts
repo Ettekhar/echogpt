@@ -4,6 +4,7 @@ import { CreateProviderDto } from './dto/create-provider.dto';
 import { UpdateProviderDto } from './dto/update-provider.dto';
 import { encryptSecret, maskSecret, decryptSecret } from '../common/utils/crypto.util';
 import { ProviderAdapterFactory } from './adapters/provider-adapter.factory';
+import { HealthCheckResult } from './adapters/provider-adapter.interface';
 
 @Injectable()
 export class ProvidersService {
@@ -71,8 +72,8 @@ export class ProvidersService {
 
     // Default models per provider if still empty
     if (!model) {
-      if (dto.name === 'GEMINI') model = 'gemini-3.5-flash';
-      else if (dto.name === 'OPENAI') model = 'gpt-4o';
+      if (dto.name === 'GEMINI') model = 'gemini-2.0-flash';
+      else if (dto.name === 'OPENAI') model = 'gpt-4o-mini';
       else if (dto.name === 'CLAUDE') model = 'claude-3-5-sonnet-20241022';
     }
 
@@ -146,13 +147,20 @@ export class ProvidersService {
     const provider = await this.getOwnedOrThrow(userId, id);
     const adapter = this.adapterFactory.get(provider.name as any);
     const apiKey = decryptSecret(provider.encryptedApiKey);
-    const healthy = await adapter.healthCheck(apiKey, provider.baseUrl || undefined);
+    const result: HealthCheckResult = await adapter.healthCheck(apiKey, provider.baseUrl || undefined);
 
     const updated = await this.prisma.aiProvider.update({
       where: { id },
-      data: { lastHealthCheck: new Date(), lastHealthy: healthy },
+      data: { lastHealthCheck: new Date(), lastHealthy: result.healthy },
     });
-    return { id: updated.id, healthy, isHealthy: healthy, checkedAt: updated.lastHealthCheck };
+    return {
+      id: updated.id,
+      healthy: result.healthy,
+      isHealthy: result.healthy,
+      checkedAt: updated.lastHealthCheck,
+      ...(result.model ? { model: result.model } : {}),
+      ...(result.error ? { error: result.error } : {}),
+    };
   }
 
   private async clearExistingDefault(userId: string) {

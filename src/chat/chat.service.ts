@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProvidersService } from '../providers/providers.service';
 import { ProviderAdapterFactory } from '../providers/adapters/provider-adapter.factory';
@@ -69,11 +69,10 @@ export class ChatService {
         })),
       });
     } catch (err: any) {
-      this.logger.warn(`AI Provider ${provider.name} failed: ${err.message}. Using fallback.`);
-      result = {
-        content: `I received your message: "${promptText}". Response generated from ${provider.name} (${provider.model || 'default'}).`,
-        tokensUsed: 25,
-      };
+      this.logger.error(`AI Provider ${provider.name} (${provider.model}) failed: ${err.message}`);
+      throw new ServiceUnavailableException(
+        `AI provider "${provider.name}" is currently unavailable: ${err.message}`,
+      );
     }
 
     const assistantMessage = await this.prisma.message.create({
@@ -162,12 +161,12 @@ export class ChatService {
         yield { event: 'chunk', data: { text: chunk } };
       }
     } catch (err: any) {
-      this.logger.warn(`AI Stream Provider ${provider.name} failed: ${err.message}. Using fallback stream chunks.`);
-      const words = `I received your prompt: "${promptText}". Streaming generated from ${provider.name}.`.split(' ');
-      for (const w of words) {
-        fullText += w + ' ';
-        yield { event: 'chunk', data: { text: w + ' ' } };
-      }
+      this.logger.error(`AI Stream Provider ${provider.name} (${provider.model}) failed: ${err.message}`);
+      yield {
+        event: 'error',
+        data: { message: `AI provider "${provider.name}" is currently unavailable: ${err.message}` },
+      };
+      return;
     }
 
     const assistantMessage = await this.prisma.message.create({

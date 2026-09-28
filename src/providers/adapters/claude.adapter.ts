@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   ChatCompletionRequest,
   ChatCompletionResult,
+  HealthCheckResult,
   ProviderAdapter,
 } from './provider-adapter.interface';
 import { readSseDataLines } from './sse-reader.util';
@@ -9,8 +10,10 @@ import { readSseDataLines } from './sse-reader.util';
 /** Anthropic Claude adapter using the Messages API. */
 @Injectable()
 export class ClaudeAdapter implements ProviderAdapter {
+  private readonly logger = new Logger(ClaudeAdapter.name);
+
   async chat(request: ChatCompletionRequest): Promise<ChatCompletionResult> {
-    const baseUrl = request.baseUrl || 'https://api.anthropic.com/v1';
+    const baseUrl = (request.baseUrl || 'https://api.anthropic.com/v1').replace(/\/+$/, '');
     const systemMessages = request.messages.filter((m) => m.role === 'system');
     const conversation = request.messages.filter((m) => m.role !== 'system');
 
@@ -22,13 +25,20 @@ export class ClaudeAdapter implements ProviderAdapter {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: request.model || 'claude-sonnet-4-6',
+        model: request.model || 'claude-3-5-sonnet-20241022',
         max_tokens: 1024,
         system: systemMessages.map((m) => m.content).join('\n') || undefined,
         messages: conversation.map((m) => ({ role: m.role, content: m.content })),
       }),
     });
 
+    if (res.status === 401) {
+      throw new Error('Claude authentication failed: Invalid API key');
+    }
+    if (res.status === 429) {
+      const body = await res.text();
+      throw new Error(`Claude rate limit / quota exceeded (429): ${body}`);
+    }
     if (!res.ok) {
       throw new Error(`Claude request failed: ${res.status} ${await res.text()}`);
     }
@@ -41,7 +51,7 @@ export class ClaudeAdapter implements ProviderAdapter {
   }
 
   async *chatStream(request: ChatCompletionRequest): AsyncGenerator<string> {
-    const baseUrl = request.baseUrl || 'https://api.anthropic.com/v1';
+    const baseUrl = (request.baseUrl || 'https://api.anthropic.com/v1').replace(/\/+$/, '');
     const systemMessages = request.messages.filter((m) => m.role === 'system');
     const conversation = request.messages.filter((m) => m.role !== 'system');
 
@@ -53,7 +63,7 @@ export class ClaudeAdapter implements ProviderAdapter {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: request.model || 'claude-sonnet-4-6',
+        model: request.model || 'claude-3-5-sonnet-20241022',
         max_tokens: 1024,
         system: systemMessages.map((m) => m.content).join('\n') || undefined,
         messages: conversation.map((m) => ({ role: m.role, content: m.content })),
@@ -61,6 +71,13 @@ export class ClaudeAdapter implements ProviderAdapter {
       }),
     });
 
+    if (res.status === 401) {
+      throw new Error('Claude authentication failed: Invalid API key');
+    }
+    if (res.status === 429) {
+      const body = await res.text();
+      throw new Error(`Claude rate limit / quota exceeded (429): ${body}`);
+    }
     if (!res.ok || !res.body) {
       throw new Error(`Claude stream request failed: ${res.status} ${await res.text()}`);
     }
@@ -77,9 +94,12 @@ export class ClaudeAdapter implements ProviderAdapter {
     }
   }
 
-  async healthCheck(apiKey: string, baseUrl?: string): Promise<boolean> {
+  async healthCheck(apiKey: string, baseUrl?: string): Promise<HealthCheckResult> {
+    const base = (baseUrl || 'https://api.anthropic.com/v1').replace(/\/+$/, '');
+    const model = 'claude-3-5-sonnet-20241022';
+
     try {
-      const res = await fetch(`${baseUrl || 'https://api.anthropic.com/v1'}/messages`, {
+      const res = await fetch(`${base}/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -87,15 +107,25 @@ export class ClaudeAdapter implements ProviderAdapter {
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 1,
-          messages: [{ role: 'user', content: 'ping' }],
+          model,
+          max_tokens: 5,
+          messages: [{ role: 'user', content: 'Say "ok"' }],
         }),
       });
-      // Anthropic returns 200 for a valid key even on a trivial call; 401 means bad key.
-      return res.status !== 401;
-    } catch {
-      return false;
+
+      if (res.status === 401) {
+        return { healthy: false, error: 'Invalid API key (401 Unauthorized)' };
+      }
+      if (res.status === 429) {
+        return { healthy: false, error: 'Rate limit or quota exceeded (429)' };
+      }
+      if (res.ok) {
+        return { healthy: true, model };
+      }
+      const body = await res.text();
+      return { healthy: false, error: `Request failed (${res.status}): ${body.slice(0, 200)}` };
+    } catch (err: any) {
+      return { healthy: false, error: `Network error: ${err.message}` };
     }
   }
 }

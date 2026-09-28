@@ -29,7 +29,7 @@ describe('ProvidersService', () => {
       get: jest.fn(() => ({
         chat: jest.fn(),
         chatStream: jest.fn(),
-        healthCheck: jest.fn(async () => true),
+        healthCheck: jest.fn(async () => ({ healthy: true, model: 'gemini-2.0-flash' })),
       })),
     };
 
