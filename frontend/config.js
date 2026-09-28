@@ -16,6 +16,8 @@
  * internet for that to succeed - localhost will NOT work for visitors.
  */
 window.ECHOGPT_CONFIG = {
-  // Point this at your publicly reachable backend, e.g. 'https://echogpt-api.onrender.com/api/v1'
-  apiBase: 'http://localhost:3001/api/v1',
+  // Publicly reachable backend, exposed from localhost:3001 via a Cloudflare
+  // Tunnel. A quick tunnel's hostname is assigned per-process, so this changes
+  // whenever the tunnel restarts - see the "Tunnel" section of README.md.
+  apiBase: 'https://bernard-designing-organization-grad.trycloudflare.com/api/v1',
 };

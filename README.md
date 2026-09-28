@@ -60,6 +60,33 @@ to a publicly reachable backend and redeploy. CORS is already handled: the API
 reflects the requesting origin and answers preflights (configurable via
 `CORS_ORIGIN`; lock it to your own domain in production).
 
+### Exposing a local backend with a Cloudflare Tunnel
+
+For a zero-cost public demo, a Cloudflare Tunnel fronts the API running on your
+machine. Nothing about the API changes — it still serves `localhost:3001`.
+
+```bash
+# 1. Download cloudflared (https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)
+# 2. Start the tunnel and note the assigned hostname:
+cloudflared tunnel --url http://localhost:3001
+#   -> https://<random-words>.trycloudflare.com
+
+# 3. Point the frontend at it and redeploy:
+#    frontend/config.js  ->  apiBase: 'https://<random-words>.trycloudflare.com/api/v1'
+npx wrangler deploy
+```
+
+Verified end to end: login, subscription usage, provider health check, a live
+Gemini completion, and the admin dashboard all work from
+`https://echogpt.taion16240.workers.dev` against the tunneled backend.
+
+> **A quick tunnel's hostname is assigned per-process and changes on every
+> restart.** That is fine for a demo you drive yourself, but it is not something
+> to hand a reviewer. For a stable URL, create a *named* tunnel
+> (`cloudflared tunnel create echogpt-api`) and attach it to a hostname in a
+> zone in your Cloudflare account, or deploy the API to a host that provides a
+> fixed URL (Render, Railway, Fly.io).
+
 ---
 
 ## ☁️ Deploying Frontend to Cloudflare Pages (100% Free)
