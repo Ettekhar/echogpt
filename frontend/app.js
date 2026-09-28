@@ -37,6 +37,13 @@
     currentConversationId: null,
   };
 
+  // The login/refresh/logout calls themselves must not trigger the
+  // session-expired handler, or a failed sign-in would clear state that is
+  // about to be replaced and loop.
+  function isAuthEndpoint(endpoint) {
+    return /^\/(auth|health)/.test(endpoint);
+  }
+
   // Helper: API Request
   async function apiRequest(endpoint, options = {}) {
     const url = `${state.apiBase}${endpoint}`;
@@ -83,6 +90,21 @@
     if (!res.ok) {
       const message =
         (data && (data.message || data.error)) || `HTTP error ${res.status}`;
+
+      // Access tokens are short-lived (15m by default). Once one expires every
+      // subsequent call 401s and the UI just stops working, so drop the dead
+      // credentials once and tell the user, instead of failing forever.
+      // This covers the signed-out case too: a raw "Unauthorized" string tells
+      // the user nothing, whereas "your session expired" tells them what to do.
+      if (res.status === 401 && !isAuthEndpoint(endpoint)) {
+        logout();
+        showToast('Your session has expired. Please sign in again.', 'warning', 5000);
+        const err = new Error('Your session has expired. Please sign in again.');
+        err.status = 401;
+        err.isSessionExpired = true;
+        throw err;
+      }
+
       const err = new Error(message);
       err.status = res.status;
       err.data = data;
