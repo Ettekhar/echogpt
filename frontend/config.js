@@ -14,10 +14,27 @@
  * CORS: the backend allows cross-origin requests, so a public backend URL works
  * from the Cloudflare-hosted page. The backend must be reachable over the public
  * internet for that to succeed - localhost will NOT work for visitors.
+ *
+ * FAILOVER: a Cloudflare quick tunnel hands out a *different* hostname every
+ * time it restarts, so the URL below can go stale without warning. Put a
+ * permanent host (Render/Railway/Fly) in `apiBaseFallbacks` and the app will
+ * probe each entry until one answers /health, so the demo keeps working even
+ * when the tunnel is down. Put the most reliable host FIRST - the probe order
+ * is the order below.
  */
 window.ECHOGPT_CONFIG = {
-  // Publicly reachable backend, exposed from localhost:3001 via a Cloudflare
-  // Tunnel. A quick tunnel's hostname is assigned per-process, so this changes
-  // whenever the tunnel restarts - see the "Tunnel" section of README.md.
+  // Primary backend. Currently exposed from localhost:3001 via a Cloudflare
+  // quick Tunnel, whose hostname is assigned per-process and changes on every
+  // restart. Treat this as disposable.
   apiBase: 'https://bernard-designing-organization-grad.trycloudflare.com/api/v1',
+
+  // Tried in order when the primary does not answer GET /health.
+  // Add a permanent host here (e.g. 'https://echogpt-api.onrender.com/api/v1')
+  // to make the demo resilient to tunnel restarts.
+  apiBaseFallbacks: [
+    // 'https://echogpt-api.onrender.com/api/v1',
+  ],
+
+  // How long each candidate gets to answer /health before moving to the next.
+  healthProbeTimeoutMs: 6000,
 };

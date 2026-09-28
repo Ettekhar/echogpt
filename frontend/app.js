@@ -23,6 +23,20 @@
     return 'http://localhost:3001/api/v1';
   }
 
+  // Every base worth trying, primary first. A quick tunnel's hostname changes on
+  // every restart, so having a second permanent host in the list is what keeps
+  // the deployed demo from going dark when that happens.
+  function apiBaseCandidates() {
+    const configured = window.ECHOGPT_CONFIG || {};
+    const list = [state.apiBase];
+    const fallbacks = Array.isArray(configured.apiBaseFallbacks) ? configured.apiBaseFallbacks : [];
+    for (const fb of fallbacks) {
+      const clean = String(fb || '').trim().replace(/\/+$/, '');
+      if (clean && !list.includes(clean)) list.push(clean);
+    }
+    return list;
+  }
+
   // State
   const state = {
     apiBase: resolveApiBase(),
@@ -44,6 +58,164 @@
     return /^\/(auth|health)/.test(endpoint);
   }
 
+  // =========================================================================
+  // API REQUEST MONITOR
+  // Every call this page makes to the backend is logged live. During a demo
+  // this is the difference between "trust me, it works" and a reviewer watching
+  // POST /chat/messages go out and come back 201. Clicking a row copies the
+  // request as curl so it can be replayed in Postman or a terminal.
+  // =========================================================================
+  const apiLog = [];
+  const API_LOG_MAX = 60;
+  let _apiLogSeq = 0;
+  let _apiMonitorHost = null;
+
+  function apiMonitorEls() {
+    return {
+      list: document.getElementById('apiMonitorList'),
+      badge: document.getElementById('apiMonitorBadge'),
+      summary: document.getElementById('apiMonitorSummary'),
+      toggle: document.getElementById('apiMonitorToggle'),
+      panel: document.getElementById('apiMonitorPanel'),
+      host: document.getElementById('apiMonitorHost'),
+    };
+  }
+
+  function setApiMonitorHost() {
+    if (!_apiMonitorHost) _apiMonitorHost = apiMonitorEls().host;
+    if (_apiMonitorHost) {
+      try {
+        _apiMonitorHost.textContent = state.apiBase.replace(/^https?:\/\//, '').replace(/\/api\/v1\/?$/, '');
+      } catch (_) { /* ignore */ }
+    }
+  }
+
+  function renderApiLog() {
+    const { list, badge, summary, toggle } = apiMonitorEls();
+    if (!list) return;
+
+    if (apiLog.length === 0) {
+      list.innerHTML = '<div class="api-monitor-empty">No requests yet. Interact with the app to see live API traffic.</div>';
+    } else {
+      list.innerHTML = apiLog
+        .map((e) => {
+          const m = e.method.toUpperCase();
+          const statusClass =
+            e.status === null ? 's-pending'
+              : e.status === 0 ? 's-error'
+              : `s-${String(Math.floor(e.status / 100))}xx`;
+          const statusText =
+            e.status === null ? '...' : e.status === 0 ? 'ERR' : e.status;
+          const ms = e.ms == null ? '' : `${e.ms}ms`;
+          return `<div class="api-row${e.status === null ? ' is-pending' : ''}" data-log-index="${e.index}">
+            <span class="api-method m-${m}">${m}</span>
+            <span class="api-path" title="${e.endpoint}">${e.endpoint}</span>
+            <span class="api-status ${statusClass}">${statusText}</span>
+            <span class="api-ms">${ms}</span>
+          </div>`;
+        })
+        .join('');
+    }
+
+    const failed = apiLog.filter((e) => e.status !== null && e.status >= 400).length;
+    if (badge) {
+      badge.textContent = String(apiLog.length);
+      badge.classList.toggle('is-error', failed > 0);
+    }
+    if (summary) {
+      const totalMs = apiLog.filter((e) => e.ms != null);
+      const avg = totalMs.length
+        ? Math.round(totalMs.reduce((a, b) => a + b.ms, 0) / totalMs.length)
+        : 0;
+      summary.textContent =
+        `${apiLog.length} request${apiLog.length === 1 ? '' : 's'}` +
+        `${failed ? ` · ${failed} failed` : ''}` +
+        `${avg ? ` · avg ${avg}ms` : ''}`;
+    }
+    if (toggle) {
+      const pending = apiLog.some((e) => e.status === null);
+      toggle.classList.toggle('is-busy', pending);
+      toggle.classList.toggle('is-error', failed > 0 && !pending);
+    }
+  }
+
+  function logApiStart(method, endpoint, options) {
+    const entry = {
+      // Monotonic, because apiLog is unshift-ed and trimmed: apiLog.length is
+      // not a unique id and would collide once old rows fall off the end.
+      index: _apiLogSeq++,
+      method,
+      endpoint,
+      status: null,
+      ms: null,
+      startedAt: Date.now(),
+      body: options && options.body,
+      token: state.token,
+    };
+    apiLog.unshift(entry);
+    if (apiLog.length > API_LOG_MAX) apiLog.length = API_LOG_MAX;
+    renderApiLog();
+    return entry;
+  }
+
+  function logApiEnd(entry, status) {
+    if (!entry) return;
+    // Entries shift index when the list is trimmed, so match on identity.
+    const found = apiLog.find((e) => e === entry);
+    if (!found) return;
+    found.status = status;
+    found.ms = Date.now() - found.startedAt;
+    renderApiLog();
+  }
+
+  function toggleApiMonitor() {
+    const { panel } = apiMonitorEls();
+    if (!panel) return;
+    panel.classList.toggle('hidden');
+    setApiMonitorHost();
+  }
+
+  function clearApiLog() {
+    apiLog.length = 0;
+    renderApiLog();
+  }
+
+  function copyCurl(index) {
+    const e = apiLog.find((x) => x.index === index);
+    if (!e) return;
+    const url = `${state.apiBase}${e.endpoint}`;
+    const parts = [`curl -i -X ${e.method.toUpperCase()} '${url}'`];
+    if (e.token) parts.push(`-H 'Authorization: Bearer ${e.token}'`);
+    if (e.body) parts.push(`-H 'Content-Type: application/json'`, `-d '${e.body}'`);
+    const cmd = parts.join(' \\\n  ');
+    const done = () => showToast('curl command copied to clipboard', 'info', 2200);
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(cmd).then(done, () => fallbackCopy(cmd, done));
+    } else {
+      fallbackCopy(cmd, done);
+    }
+  }
+
+  function fallbackCopy(text, done) {
+    // execCommand is the only option on non-HTTPS origins, where the async
+    // clipboard API is unavailable.
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand('copy');
+      done();
+    } catch (_) {
+      showToast('Could not copy automatically - see console', 'warning', 4000);
+      // eslint-disable-next-line no-console
+      console.log('[EchoGPT] curl command:\n' + text);
+    }
+    ta.remove();
+  }
+
   // Helper: API Request
   async function apiRequest(endpoint, options = {}) {
     const url = `${state.apiBase}${endpoint}`;
@@ -57,9 +229,12 @@
     }
 
     let res;
+    const logEntry = logApiStart(options.method || 'GET', endpoint, options);
     try {
       res = await fetch(url, { ...options, headers });
+      logApiEnd(logEntry, res.status);
     } catch (err) {
+      logApiEnd(logEntry, 0); // 0 == transport failure, not an HTTP status
       // fetch only rejects on a transport failure (backend down, DNS failure,
       // blocked mixed content). Surface the likely cause instead of a bare
       // "Failed to fetch", which is what made this impossible to debug before.
@@ -324,6 +499,18 @@
 
   async function init() {
     updateSwaggerLink();
+    setApiMonitorHost();
+    // Open the monitor by default: the first thing a reviewer should see is
+    // `GET /health 200` arriving, not an empty panel.
+    const panel = document.getElementById('apiMonitorPanel');
+    if (panel) panel.classList.remove('hidden');
+    const monitorList = document.getElementById('apiMonitorList');
+    if (monitorList) {
+      monitorList.addEventListener('click', (ev) => {
+        const row = ev.target.closest('[data-log-index]');
+        if (row) copyCurl(Number(row.dataset.logIndex));
+      });
+    }
     checkHealth();
     renderUserUI();
     setupEventListeners();
@@ -349,6 +536,16 @@
     if (el.linkSwagger) {
       el.linkSwagger.href = `${state.apiBase}/docs`;
     }
+    // These two were hardcoded to localhost:3001, which resolves to the
+    // *visitor's* machine when the demo is opened on someone else's PC.
+    const adminSwagger = document.getElementById('linkSwaggerAdmin');
+    if (adminSwagger) adminSwagger.href = `${state.apiBase}/docs`;
+    const postman = document.getElementById('linkPostman');
+    if (postman) {
+      // The collection is served by the API at the site root, so swap the
+      // /api/v1 prefix the other links carry.
+      postman.href = `${state.apiBase.replace(/\/api\/v1\/?$/, '')}/postman_collection.json`;
+    }
   }
 
   async function checkHealth() {
@@ -356,18 +553,80 @@
     // is ADMIN-gated, so it returned 401 for every signed-out or non-admin
     // visitor and the UI incorrectly reported "API Offline" against a perfectly
     // healthy backend.
-    try {
-      const res = await apiRequest('/health');
-      if (res && res.data && res.data.status === 'ok') {
-        el.apiStatusLabel.textContent = 'API Connected';
-        el.apiStatusPill.querySelector('.status-dot').className = 'status-dot';
-        el.apiStatusPill.title = `Connected to ${state.apiBase}`;
+    const candidates = apiBaseCandidates();
+    const timeout = (window.ECHOGPT_CONFIG && window.ECHOGPT_CONFIG.healthProbeTimeoutMs) || 6000;
+    const label = (b) => b.replace(/^https?:\/\//, '').replace(/\/api\/v1\/?$/, '');
+    let live = null;
+
+    for (const base of candidates) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeout);
+      try {
+        const res = await fetch(`${base}/health`, { signal: controller.signal });
+        const json = await res.json().catch(() => null);
+        // TransformInterceptor wraps every response as { success, data }, so the
+        // status field lives under `data` - a bare `json.status` is undefined and
+        // would report a healthy backend as offline.
+        const healthy = json && (json.status === 'ok' || (json.data && json.data.status === 'ok'));
+        if (res.ok && healthy) { live = base; break; }
+      } catch (_) {
+        // Unreachable, timed out, or not JSON - try the next candidate.
+      } finally {
+        clearTimeout(timer);
       }
-    } catch (_) {
+    }
+
+    if (live) {
+      // A working fallback means the tunnel is down; move to the healthy host
+      // and remember it, so the rest of the session uses the reachable one.
+      if (live !== state.apiBase) {
+        state.apiBase = live;
+        localStorage.setItem('echogpt_api_base', live);
+        updateSwaggerLink();
+        setApiMonitorHost();
+        showToast(`Primary backend unreachable - switched to ${label(live)}`, 'warning', 6000);
+      }
+      el.apiStatusLabel.textContent = `API Connected · ${label(live)}`;
+      el.apiStatusPill.querySelector('.status-dot').className = 'status-dot';
+      el.apiStatusPill.title = `Connected to ${live} — click to change`;
+      hideOfflineBanner();
+    } else {
       el.apiStatusLabel.textContent = 'API Offline';
       el.apiStatusPill.querySelector('.status-dot').className = 'status-dot disconnected';
-      el.apiStatusPill.title = `Could not reach ${state.apiBase}`;
+      el.apiStatusPill.title = `Could not reach any backend — click to change`;
+      showOfflineBanner(candidates.map(label));
     }
+  }
+
+  function showOfflineBanner(triedHosts) {
+    const banner = document.getElementById('offlineBanner');
+    if (!banner) return;
+    banner.innerHTML = `
+      <div class="offline-banner-inner">
+        <div class="offline-banner-text">
+          <strong>Backend unreachable.</strong>
+          Tried ${triedHosts.map((h) => `<code>${h}</code>`).join(', ')} and none answered
+          <code>GET /health</code>.
+          The demo backend is served from a tunnel whose hostname changes whenever it
+          restarts — if you are reviewing this on your own machine, the API is
+          probably not running right now.
+        </div>
+        <div class="offline-banner-actions">
+          <button class="offline-banner-btn" onclick="window.EchoApp.retryHealth()">Retry</button>
+          <button class="offline-banner-btn primary" onclick="window.EchoApp.openApiModal()">Set API URL</button>
+        </div>
+      </div>`;
+    banner.classList.remove('hidden');
+  }
+
+  function hideOfflineBanner() {
+    const banner = document.getElementById('offlineBanner');
+    if (banner) banner.classList.add('hidden');
+  }
+
+  function retryHealth() {
+    showToast('Re-checking backend...', 'info', 2000);
+    checkHealth();
   }
 
   // =========================================================================
@@ -1044,6 +1303,36 @@
       const logList = Array.isArray(logData) ? logData : (logData?.data || []);
       renderRecentLogs(logList);
     }
+
+    // Promise.allSettled keeps one bad panel from blanking the whole dashboard,
+    // but it also means a failure is invisible: the card just sits at "—".
+    // Surface which panels failed so a broken dashboard is never mistaken for
+    // a dashboard with no data.
+    const failures = [
+      ['Dashboard stats', dashRes],
+      ['System health', healthRes],
+      ['User list', usersRes],
+      ['Usage analytics', analyticsRes],
+      ['Provider overview', providersRes],
+      ['Request logs', logsRes],
+    ].filter(([, r]) => r.status === 'rejected');
+
+    if (failures.length) {
+      const detail = failures
+        .map(([name, r]) => `${name}: ${r.reason?.message || r.reason?.status || 'failed'}`)
+        .join(' · ');
+      showToast(`Admin dashboard partially failed — ${detail}`, 'error', 8000);
+      const banner = document.getElementById('adminErrorBanner');
+      if (banner) {
+        banner.textContent = `Some panels failed to load — ${detail}`;
+        banner.classList.remove('hidden');
+      }
+      // eslint-disable-next-line no-console
+      console.warn('[Admin] partial dashboard failure:', detail);
+    } else {
+      const banner = document.getElementById('adminErrorBanner');
+      if (banner) banner.classList.add('hidden');
+    }
   }
 
   function safeSet(id, val) {
@@ -1490,6 +1779,7 @@
       state.apiBase = val.replace(/\/+$/, '');
       localStorage.setItem('echogpt_api_base', state.apiBase);
       updateSwaggerLink();
+      setApiMonitorHost();
       closeApiModal();
       checkHealth();
     }
@@ -1518,6 +1808,9 @@
     openApiModal,
     closeApiModal,
     saveApiBaseUrl,
+    toggleApiMonitor,
+    clearApiLog,
+    retryHealth,
     // Admin
     filterUsersTable,
     goUsersPage,
