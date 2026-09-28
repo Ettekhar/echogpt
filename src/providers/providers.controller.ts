@@ -76,11 +76,46 @@ export class ProvidersController {
     return this.providersService.setEnabled(userId, id, false);
   }
 
+  @Get('default')
+  @ApiOperation({ summary: 'Get the default AI provider configuration' })
+  @ApiResponse({ status: 200, description: 'Default provider found' })
+  @ApiResponse({ status: 404, description: 'No default provider configured' })
+  getDefault(@CurrentUser('id') userId: string) {
+    return this.providersService.getDefault(userId);
+  }
+
+  @Patch(':id/default')
+  @ApiOperation({ summary: 'Set provider as default' })
+  @ApiResponse({ status: 200, description: 'Provider set as default' })
+  @ApiResponse({ status: 404, description: 'Provider not found or not owned by this user' })
+  setDefaultPatch(@CurrentUser('id') userId: string, @Param('id') id: string) {
+    return this.providersService.update(userId, id, { isDefault: true });
+  }
+
+  @Post(':id/default')
+  @ApiOperation({ summary: 'Set provider as default (POST alias)' })
+  @ApiResponse({ status: 200, description: 'Provider set as default' })
+  setDefaultPost(@CurrentUser('id') userId: string, @Param('id') id: string) {
+    return this.providersService.update(userId, id, { isDefault: true });
+  }
+
   @Post(':id/health-check')
   @ApiOperation({ summary: "Ping the provider's API to confirm the stored key is valid" })
   @ApiResponse({ status: 200, description: '{ healthy: boolean, checkedAt: Date }' })
   @ApiResponse({ status: 404, description: 'Provider not found or not owned by this user' })
   healthCheck(@CurrentUser('id') userId: string, @Param('id') id: string) {
+    return this.providersService.healthCheck(userId, id);
+  }
+
+  @Get(':id/health')
+  @ApiOperation({ summary: "Check provider health (GET alias)" })
+  healthCheckGet(@CurrentUser('id') userId: string, @Param('id') id: string) {
+    return this.providersService.healthCheck(userId, id);
+  }
+
+  @Post(':id/health')
+  @ApiOperation({ summary: "Check provider health (POST alias)" })
+  healthCheckPost(@CurrentUser('id') userId: string, @Param('id') id: string) {
     return this.providersService.healthCheck(userId, id);
   }
 }

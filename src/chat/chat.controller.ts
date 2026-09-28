@@ -29,6 +29,12 @@ export class ChatController {
     return this.chatService.sendMessage(userId, dto);
   }
 
+  @Post('send')
+  @ApiOperation({ summary: 'Send a prompt and receive an AI response (alias)' })
+  sendMessageAlias(@CurrentUser('id') userId: string, @Body() dto: SendMessageDto) {
+    return this.chatService.sendMessage(userId, dto);
+  }
+
   @Post('messages/stream')
   @ApiOperation({
     summary: '(Bonus) Send a prompt and stream the AI response as Server-Sent Events',
@@ -45,6 +51,7 @@ export class ChatController {
     @Body() dto: SendMessageDto,
     @Res() res: Response,
   ) {
+    res.status(200);
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
@@ -58,10 +65,26 @@ export class ChatController {
     res.end();
   }
 
+  @Post('stream')
+  @ApiOperation({ summary: '(Bonus) Send prompt and stream AI response (alias)' })
+  async sendMessageStreamAlias(
+    @CurrentUser('id') userId: string,
+    @Body() dto: SendMessageDto,
+    @Res() res: Response,
+  ) {
+    return this.sendMessageStream(userId, dto, res);
+  }
+
   @Get('conversations')
   @ApiOperation({ summary: "List the current user's conversations" })
   @ApiResponse({ status: 200, description: 'Array of conversations, most recent first' })
   listConversations(@CurrentUser('id') userId: string) {
+    return this.chatService.listConversations(userId);
+  }
+
+  @Get('history')
+  @ApiOperation({ summary: "List the current user's conversations (alias)" })
+  listHistoryAlias(@CurrentUser('id') userId: string) {
     return this.chatService.listConversations(userId);
   }
 

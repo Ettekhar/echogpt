@@ -12,6 +12,7 @@ import { ChatModule } from './chat/chat.module';
 import { SearchModule } from './search/search.module';
 import { AdminModule } from './admin/admin.module';
 import { UsageLoggingInterceptor } from './common/interceptors/usage-logging.interceptor';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { UsageLoggingInterceptor } from './common/interceptors/usage-logging.int
     SearchModule,
     AdminModule,
   ],
+  controllers: [AppController],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_INTERCEPTOR, useClass: UsageLoggingInterceptor },

@@ -122,7 +122,7 @@ export class AuthService {
     );
 
     const refreshToken = this.jwt.sign(
-      { sub: userId, email },
+      { sub: userId, email, jti: randomUUID() },
       {
         secret: process.env.JWT_REFRESH_SECRET,
         expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',

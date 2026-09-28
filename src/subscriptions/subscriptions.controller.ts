@@ -20,10 +20,23 @@ export class SubscriptionsController {
     return this.subscriptionsService.getStatus(userId);
   }
 
+  @Get('me')
+  @ApiOperation({ summary: 'Get current subscription status (alias)' })
+  getStatusMe(@CurrentUser('id') userId: string) {
+    return this.subscriptionsService.getStatus(userId);
+  }
+
   @Get('usage')
   @ApiOperation({ summary: 'Get remaining requests for today' })
   @ApiResponse({ status: 200, description: 'Daily limit, requests used, and requests remaining' })
   getUsage(@CurrentUser('id') userId: string) {
+    return this.subscriptionsService.getRemainingRequests(userId);
+  }
+
+  @Get('remaining')
+  @ApiOperation({ summary: 'Get remaining requests for today (alias)' })
+  @ApiResponse({ status: 200, description: 'Daily limit, requests used, and requests remaining' })
+  getRemaining(@CurrentUser('id') userId: string) {
     return this.subscriptionsService.getRemainingRequests(userId);
   }
 
@@ -33,6 +46,20 @@ export class SubscriptionsController {
   @ApiResponse({ status: 400, description: 'Validation failed (invalid plan value)' })
   changePlan(@CurrentUser('id') userId: string, @Body() dto: ChangePlanDto) {
     return this.subscriptionsService.changePlan(userId, dto.plan);
+  }
+
+  @Post('upgrade')
+  @ApiOperation({ summary: 'Upgrade subscription to PREMIUM' })
+  @ApiResponse({ status: 200, description: 'Upgraded to PREMIUM' })
+  upgrade(@CurrentUser('id') userId: string) {
+    return this.subscriptionsService.changePlan(userId, 'PREMIUM' as any);
+  }
+
+  @Post('downgrade')
+  @ApiOperation({ summary: 'Downgrade subscription to FREE' })
+  @ApiResponse({ status: 200, description: 'Downgraded to FREE' })
+  downgrade(@CurrentUser('id') userId: string) {
+    return this.subscriptionsService.changePlan(userId, 'FREE' as any);
   }
 
   @Post('cancel')

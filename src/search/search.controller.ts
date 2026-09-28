@@ -25,6 +25,16 @@ export class SearchController {
     return this.searchService.search(userId, dto.query);
   }
 
+  @Post()
+  @ApiOperation({ summary: 'Run an AI-assisted web search query (root alias)' })
+  @ApiResponse({
+    status: 201,
+    description: 'Search results (served from cache when available within the cache window)',
+  })
+  searchRoot(@CurrentUser('id') userId: string, @Body() dto: SearchQueryDto) {
+    return this.searchService.search(userId, dto.query);
+  }
+
   @Get('history')
   @ApiOperation({ summary: "Paginated history of the user's past searches" })
   @ApiResponse({ status: 200, description: 'Paginated list of past searches, most recent first' })

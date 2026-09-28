@@ -47,6 +47,127 @@
     }
   }
 
+  // =========================================================================
+  // TOAST NOTIFICATION SYSTEM
+  // =========================================================================
+  let _toastContainer = null;
+
+  function getToastContainer() {
+    if (!_toastContainer) {
+      _toastContainer = document.createElement('div');
+      _toastContainer.id = 'toastContainer';
+      _toastContainer.style.cssText = [
+        'position:fixed',
+        'bottom:24px',
+        'right:24px',
+        'z-index:99999',
+        'display:flex',
+        'flex-direction:column-reverse',
+        'gap:10px',
+        'pointer-events:none',
+        'max-width:360px',
+      ].join(';');
+      document.body.appendChild(_toastContainer);
+    }
+    return _toastContainer;
+  }
+
+  function showToast(message, type = 'success', duration = 3500) {
+    const container = getToastContainer();
+    const toast = document.createElement('div');
+
+    const icons = {
+      success: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>',
+      error:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+      info:    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+      warning: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+    };
+    const colors = {
+      success: { bg: '#0f172a', border: '#10b981', icon: '#10b981' },
+      error:   { bg: '#0f172a', border: '#ef4444', icon: '#ef4444' },
+      info:    { bg: '#0f172a', border: '#6366f1', icon: '#6366f1' },
+      warning: { bg: '#0f172a', border: '#f59e0b', icon: '#f59e0b' },
+    };
+    const c = colors[type] || colors.info;
+
+    toast.style.cssText = [
+      `background:${c.bg}`,
+      'color:#e2e8f0',
+      `border-left:3px solid ${c.border}`,
+      'border-radius:10px',
+      'padding:12px 16px',
+      'display:flex',
+      'align-items:flex-start',
+      'gap:10px',
+      'box-shadow:0 8px 32px rgba(0,0,0,0.45)',
+      'pointer-events:all',
+      'cursor:pointer',
+      'font-family:Plus Jakarta Sans,Inter,sans-serif',
+      'font-size:13px',
+      'line-height:1.4',
+      'min-width:260px',
+      'max-width:360px',
+      'transform:translateX(120%)',
+      'transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1), opacity 0.25s ease',
+      'opacity:0',
+    ].join(';');
+
+    toast.innerHTML = `
+      <span style="color:${c.icon};flex-shrink:0;margin-top:1px;">${icons[type] || icons.info}</span>
+      <span style="flex:1;">${message}</span>
+      <button style="background:none;border:none;color:#64748b;cursor:pointer;font-size:16px;line-height:1;padding:0;margin-left:4px;flex-shrink:0;" onclick="this.parentElement.remove()">&times;</button>
+    `;
+
+    container.appendChild(toast);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        toast.style.transform = 'translateX(0)';
+        toast.style.opacity = '1';
+      });
+    });
+
+    toast.addEventListener('click', (e) => {
+      if (e.target.tagName !== 'BUTTON') dismissToast(toast);
+    });
+
+    setTimeout(() => dismissToast(toast), duration);
+    return toast;
+  }
+
+  function dismissToast(toast) {
+    toast.style.transform = 'translateX(120%)';
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 300);
+  }
+
+  // Async confirm dialog (replaces native confirm())
+  function showConfirm(message, title = 'Confirm Action') {
+    return new Promise((resolve) => {
+      const backdrop = document.createElement('div');
+      backdrop.style.cssText = [
+        'position:fixed','inset:0','background:rgba(0,0,0,0.6)',
+        'z-index:99998','display:flex','align-items:center','justify-content:center',
+        'backdrop-filter:blur(4px)',
+      ].join(';');
+
+      backdrop.innerHTML = `
+        <div style="background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:28px 32px;max-width:380px;width:90%;box-shadow:0 25px 60px rgba(0,0,0,0.6);font-family:Plus Jakarta Sans,Inter,sans-serif;">
+          <div style="font-size:15px;font-weight:700;color:#f1f5f9;margin-bottom:8px;">${title}</div>
+          <div style="font-size:13px;color:#94a3b8;line-height:1.6;margin-bottom:24px;">${message}</div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button id="confirmNo" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Cancel</button>
+            <button id="confirmYes" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:#fff;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">Confirm</button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(backdrop);
+      backdrop.querySelector('#confirmYes').addEventListener('click', () => { backdrop.remove(); resolve(true); });
+      backdrop.querySelector('#confirmNo').addEventListener('click', () => { backdrop.remove(); resolve(false); });
+      backdrop.addEventListener('click', (e) => { if (e.target === backdrop) { backdrop.remove(); resolve(false); } });
+    });
+  }
+
   // DOM Elements
   const el = {
     // Topbar
@@ -133,6 +254,8 @@
   // =========================================================================
   // INITIALIZATION & CONNECTION TEST
   // =========================================================================
+  let _initLoginPromise = null; // Tracks the auto-login so admin view can await it
+
   async function init() {
     updateSwaggerLink();
     checkHealth();
@@ -141,11 +264,12 @@
 
     // Auto login as admin if no user exists so demo is immediately usable
     if (!state.user) {
-      try {
-        await loginWithCredentials('admin@echogpt.app', 'ChangeMe123!');
-      } catch (_) {
-        // If not seeded, user can use modal
-      }
+      _initLoginPromise = loginWithCredentials('admin@echogpt.app', 'ChangeMe123!')
+        .catch(() => {}); // suppress errors
+      await _initLoginPromise;
+      _initLoginPromise = null;
+      // If the admin view button was clicked before login resolved, reload now
+      if (state.viewMode === 'admin') loadAdminDashboard();
     } else {
       refreshSubscription();
       loadProviders();
@@ -182,7 +306,12 @@
       el.mockWebpage.classList.add('hidden');
       el.echogptSidebar.classList.add('collapsed');
       el.adminPortalView.classList.remove('hidden');
-      loadAdminDashboard();
+      // If auto-login is still in progress, wait for it before loading dashboard
+      if (_initLoginPromise) {
+        _initLoginPromise.then(() => loadAdminDashboard());
+      } else {
+        loadAdminDashboard();
+      }
     } else {
       el.btnViewAdmin.classList.remove('active');
       el.btnViewSidebar.classList.add('active');
@@ -215,8 +344,78 @@
   // =========================================================================
   // AUTHENTICATION
   // =========================================================================
+  state.authMode = 'login';
+
+  function setAuthMode(mode) {
+    state.authMode = mode;
+    const tabLogin = document.getElementById('tabAuthLogin');
+    const tabRegister = document.getElementById('tabAuthRegister');
+    const groupName = document.getElementById('groupAuthName');
+    const authName = document.getElementById('authName');
+    const btnSubmit = document.getElementById('btnSubmitAuth');
+    const switchText = document.getElementById('authSwitchText');
+    const switchLink = document.getElementById('authSwitchLink');
+    const modalTagline = document.getElementById('authModalTagline');
+    const modalTitle = document.getElementById('authModalTitle');
+    const recruiterBox = document.getElementById('recruiterQuickBox');
+    const authDivider = document.getElementById('authDivider');
+    const emailInput = document.getElementById('authEmail');
+    const passInput = document.getElementById('authPassword');
+    const errorNotice = el.authErrorNotice || document.getElementById('authErrorNotice');
+
+    if (errorNotice) errorNotice.classList.add('hidden');
+
+    if (mode === 'register') {
+      tabLogin?.classList.remove('active');
+      tabRegister?.classList.add('active');
+      groupName?.classList.remove('hidden');
+      if (authName) authName.required = true;
+      if (btnSubmit) btnSubmit.textContent = 'Create Account';
+      if (switchText) switchText.textContent = 'Already have an account?';
+      if (switchLink) switchLink.textContent = 'Sign In';
+      if (modalTitle) modalTitle.textContent = 'Create EchoGPT Account';
+      if (modalTagline) modalTagline.textContent = 'Register a new account to test full backend capabilities.';
+      if (recruiterBox) recruiterBox.style.display = 'none';
+      if (authDivider) authDivider.style.display = 'none';
+      if (emailInput && emailInput.value === 'admin@echogpt.app') emailInput.value = '';
+      if (passInput && passInput.value === 'ChangeMe123!') passInput.value = '';
+    } else {
+      tabLogin?.classList.add('active');
+      tabRegister?.classList.remove('active');
+      groupName?.classList.add('hidden');
+      if (authName) authName.required = false;
+      if (btnSubmit) btnSubmit.textContent = 'Sign In';
+      if (switchText) switchText.textContent = "Don't have an account?";
+      if (switchLink) switchLink.textContent = 'Create Account';
+      if (modalTitle) modalTitle.textContent = 'EchoGPT Access';
+      if (modalTagline) modalTagline.textContent = 'Sign in or create an account to test full backend capabilities.';
+      if (recruiterBox) recruiterBox.style.display = 'block';
+      if (authDivider) authDivider.style.display = 'block';
+    }
+  }
+
+  function toggleAuthMode() {
+    setAuthMode(state.authMode === 'register' ? 'login' : 'register');
+  }
+
+  async function handleAuthSubmit(event) {
+    if (event) event.preventDefault();
+    if (state.authMode === 'register') {
+      await handleRegister();
+    } else {
+      const email = document.getElementById('authEmail').value;
+      const password = document.getElementById('authPassword').value;
+      await loginWithCredentials(email, password);
+    }
+  }
+
   async function loginWithCredentials(email, password) {
+    const submitBtn = document.getElementById('btnSubmitAuth');
     try {
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Signing In...';
+      }
       el.authErrorNotice.classList.add('hidden');
       const res = await apiRequest('/auth/login', {
         method: 'POST',
@@ -233,23 +432,42 @@
         closeAuthModal();
         refreshSubscription();
         loadProviders();
+        showToast(`Welcome back, ${state.user.name || state.user.email}!`);
         return res;
       }
     } catch (err) {
       el.authErrorNotice.textContent = err.message || 'Login failed. Please check credentials.';
       el.authErrorNotice.classList.remove('hidden');
       throw err;
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Sign In';
+      }
     }
   }
 
   async function handleRegister() {
-    const email = document.getElementById('authEmail').value;
+    const email = document.getElementById('authEmail').value.trim();
     const password = document.getElementById('authPassword').value;
+    const name = (document.getElementById('authName')?.value || '').trim() || email.split('@')[0];
+    const submitBtn = document.getElementById('btnSubmitAuth');
+
+    if (!email || !password) {
+      el.authErrorNotice.textContent = 'Please provide an email and password.';
+      el.authErrorNotice.classList.remove('hidden');
+      return;
+    }
+
     try {
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Creating Account...';
+      }
       el.authErrorNotice.classList.add('hidden');
       const res = await apiRequest('/auth/register', {
         method: 'POST',
-        body: JSON.stringify({ email, password, name: email.split('@')[0] }),
+        body: JSON.stringify({ email, password, name }),
       });
       if (res.data && res.data.accessToken) {
         state.token = res.data.accessToken;
@@ -258,10 +476,18 @@
         localStorage.setItem('echogpt_user', JSON.stringify(state.user));
         renderUserUI();
         closeAuthModal();
+        refreshSubscription();
+        loadProviders();
+        showToast(`Account created! Welcome, ${state.user.name || state.user.email}.`);
       }
     } catch (err) {
       el.authErrorNotice.textContent = err.message || 'Registration failed.';
       el.authErrorNotice.classList.remove('hidden');
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = state.authMode === 'register' ? 'Create Account' : 'Sign In';
+      }
     }
   }
 
@@ -578,7 +804,7 @@
     e.preventDefault();
     const name = document.getElementById('newProviderName').value;
     if (!name) {
-      alert('Please select a valid AI provider from the dropdown.');
+      showToast('Please select a valid AI provider from the dropdown.', 'warning');
       return;
     }
     const apiKey = document.getElementById('newProviderKey').value.trim();
@@ -593,29 +819,32 @@
       });
       closeProviderModal();
       loadProviders();
-      alert('Provider API key saved and encrypted at rest!');
+      showToast('Provider API key saved and encrypted at rest! 🔒', 'success');
     } catch (err) {
-      alert(`Error saving provider: ${err.message}`);
+      showToast(`Error saving provider: ${err.message}`, 'error');
     }
   }
 
   async function testProviderHealth(id) {
+    showToast('Testing provider connection...', 'info', 1500);
     try {
       const res = await apiRequest(`/providers/${id}/health-check`, { method: 'POST' });
       const isOk = res.data && (res.data.healthy ?? res.data.isHealthy);
-      alert(`Health Check: ${isOk ? 'Healthy ✅' : 'Unavailable ❌'}`);
+      showToast(`Health Check: ${isOk ? 'Provider is Healthy ✅' : 'Provider Unavailable ❌'}`, isOk ? 'success' : 'error', 4000);
     } catch (err) {
-      alert(`Health Check result: ${err.message}`);
+      showToast(`Health Check failed: ${err.message}`, 'error');
     }
   }
 
   async function deleteProvider(id) {
-    if (!confirm('Are you sure you want to remove this provider?')) return;
+    const ok = await showConfirm('This will permanently remove this provider and its encrypted API key.', 'Remove Provider?');
+    if (!ok) return;
     try {
       await apiRequest(`/providers/${id}`, { method: 'DELETE' });
       loadProviders();
+      showToast('Provider removed successfully.', 'success');
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, 'error');
     }
   }
 
@@ -644,70 +873,412 @@
         body: JSON.stringify({ plan: planType }),
       });
       refreshSubscription();
-      alert(`Updated subscription to ${planType} plan!`);
+      showToast(`Subscription updated to ${planType} plan! 🎉`, 'success');
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, 'error');
     }
   }
 
   // =========================================================================
-  // ADMIN DASHBOARD
+  // ADMIN DASHBOARD — FULL ANALYTICS
   // =========================================================================
+  let _usageChartInst = null;
+  let _subChartInst = null;
+  let _allUsersCache = [];
+  let _logsPage = 1;
+
   async function loadAdminDashboard() {
-    if (!state.token) {
-      openAuthModal();
-      return;
+    if (!state.token) { openAuthModal(); return; }
+
+    const days = (document.getElementById('selAnalyticsDays') || {}).value || 7;
+
+    const [dashRes, healthRes, usersRes, analyticsRes, providersRes, logsRes] = await Promise.allSettled([
+      apiRequest('/admin/dashboard'),
+      apiRequest('/admin/system-health'),
+      apiRequest('/admin/users?pageSize=50'),
+      apiRequest(`/admin/usage-analytics?days=${days}`),
+      apiRequest('/admin/providers'),
+      apiRequest('/admin/logs?pageSize=20'),
+    ]);
+
+    // KPI Cards
+    if (dashRes.status === 'fulfilled' && dashRes.value?.data) {
+      const d = dashRes.value.data;
+      const totalUsers = d.users?.total ?? 0;
+      const activeUsers = d.users?.active ?? 0;
+      const premiumSubs = d.subscriptions?.premium ?? 0;
+      const freeSubs = d.subscriptions?.free ?? 0;
+      const conversations = d.usage?.conversations ?? 0;
+      const messages = d.usage?.messages ?? 0;
+      const searches = d.usage?.searches ?? 0;
+      const reqToday = d.requestsToday ?? 0;
+
+      safeSet('valTotalUsers', totalUsers);
+      safeSet('valActiveUsers', `${activeUsers} active`);
+      safeSet('valActiveSubscriptions', premiumSubs);
+      safeSet('valFreeSubs', `${freeSubs} free`);
+      safeSet('valTotalRequests', reqToday);
+      safeSet('valTotalMessages', `${messages} messages`);
+      safeSet('valTotalConversations', conversations);
+      safeSet('valTotalSearches', `${searches} searches`);
+
+      // Subscription doughnut
+      buildSubChart(premiumSubs, freeSubs);
     }
 
-    try {
-      const [dashRes, healthRes, usersRes] = await Promise.allSettled([
-        apiRequest('/admin/dashboard'),
-        apiRequest('/admin/system-health'),
-        apiRequest('/admin/users'),
-      ]);
+    // System Health
+    if (healthRes.status === 'fulfilled' && healthRes.value?.data) {
+      const h = healthRes.value.data;
+      const status = (h.status || 'OK').toUpperCase();
+      safeSet('valSystemHealth', status);
+      const uptimeSec = h.uptimeSeconds || 0;
+      const uptimeStr = uptimeSec > 3600
+        ? `${Math.floor(uptimeSec/3600)}h ${Math.floor((uptimeSec%3600)/60)}m`
+        : `${Math.floor(uptimeSec/60)}m ${uptimeSec%60}s`;
+      safeSet('valUptimeBadge', uptimeStr);
+      safeSet('lblUptime', `DB: ${h.database || 'up'}`);
+      safeSet('perfUptime', uptimeStr);
+    }
 
-      if (dashRes.status === 'fulfilled' && dashRes.value && dashRes.value.data) {
-        const d = dashRes.value.data;
-        el.valTotalUsers.textContent = d.users?.total ?? d.totalUsers ?? 1;
-        el.valActiveSubscriptions.textContent = d.subscriptions?.premium ?? d.activeSubscriptions ?? 1;
-        el.valTotalRequests.textContent = d.requestsToday ?? d.usage?.messages ?? d.totalRequests ?? 0;
-      }
+    // Users Table
+    const usersBody = document.getElementById('tblUsersBody');
+    if (usersRes.status === 'fulfilled' && usersRes.value?.data) {
+      const rawUsers = usersRes.value.data;
+      _allUsersCache = Array.isArray(rawUsers) ? rawUsers : (rawUsers?.data || []);
+      renderUsersTable(_allUsersCache, 1);
+    } else if (usersRes.status === 'rejected' && usersBody) {
+      usersBody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#ef4444;padding:16px;">Failed to load users: ${usersRes.reason?.message || 'Admin auth required.'}</td></tr>`;
+    }
 
-      if (healthRes.status === 'fulfilled' && healthRes.value && healthRes.value.data) {
-        const h = healthRes.value.data;
-        el.valSystemHealth.textContent = (h.status || 'OK').toUpperCase();
-        el.lblUptime.textContent = `Uptime: ${h.uptimeSeconds || 0}s · Database: ${h.database || 'up'}`;
-      }
+    // Usage Analytics + Chart
+    if (analyticsRes.status === 'fulfilled' && analyticsRes.value?.data) {
+      const a = analyticsRes.value.data;
+      buildUsageChart(a.byDay || {});
+      renderPerfMetrics(a.byDay || {});
+    }
 
-      if (usersRes.status === 'fulfilled' && usersRes.value && usersRes.value.data) {
-        renderUsersTable(usersRes.value.data);
-      } else if (usersRes.status === 'rejected') {
-        el.tblUsersBody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#ef4444;padding:16px;">Failed to load users: ${usersRes.reason?.message || 'Admin authentication required.'}</td></tr>`;
-      }
-    } catch (err) {
-      console.error('Error loading admin metrics:', err);
-      el.tblUsersBody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#ef4444;padding:16px;">Error: ${err.message}</td></tr>`;
+    // Provider Overview
+    if (providersRes.status === 'fulfilled') {
+      const provData = providersRes.value?.data || [];
+      renderProviderOverview(Array.isArray(provData) ? provData : []);
+    }
+
+    // Recent Logs
+    if (logsRes.status === 'fulfilled' && logsRes.value?.data) {
+      const logData = logsRes.value.data;
+      const logList = Array.isArray(logData) ? logData : (logData?.data || []);
+      renderRecentLogs(logList);
     }
   }
 
-  function renderUsersTable(users) {
-    const list = Array.isArray(users) ? users : (users && Array.isArray(users.data) ? users.data : []);
-    if (!list || list.length === 0) {
-      el.tblUsersBody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:16px;color:#64748b;">No registered users found.</td></tr>`;
+  function safeSet(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  }
+
+  function buildUsageChart(byDay) {
+    const canvas = document.getElementById('usageChart');
+    if (!canvas) return;
+    const emptyHint = document.getElementById('usageChartEmpty');
+    const days = Object.keys(byDay).sort();
+    if (days.length === 0) {
+      if (emptyHint) emptyHint.classList.remove('hidden');
+      return;
+    }
+    if (emptyHint) emptyHint.classList.add('hidden');
+
+    if (_usageChartInst) _usageChartInst.destroy();
+    _usageChartInst = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: days.map(d => {
+          const dt = new Date(d);
+          return dt.toLocaleDateString('en', { month: 'short', day: 'numeric' });
+        }),
+        datasets: [
+          {
+            label: 'Requests',
+            data: days.map(d => byDay[d].count),
+            borderColor: '#6366f1',
+            backgroundColor: 'rgba(99,102,241,0.12)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 4,
+            pointBackgroundColor: '#6366f1',
+          },
+          {
+            label: 'Errors',
+            data: days.map(d => byDay[d].errors),
+            borderColor: '#f43f5e',
+            backgroundColor: 'rgba(244,63,94,0.08)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 4,
+            pointBackgroundColor: '#f43f5e',
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+          y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 }, precision: 0 } },
+        },
+      },
+    });
+  }
+
+  function buildSubChart(premium, free) {
+    const canvas = document.getElementById('subChart');
+    const legend = document.getElementById('subChartLegend');
+    if (!canvas) return;
+    if (_subChartInst) _subChartInst.destroy();
+    const total = premium + free || 1;
+    _subChartInst = new Chart(canvas, {
+      type: 'doughnut',
+      data: {
+        labels: ['Premium', 'Free'],
+        datasets: [{ data: [premium, free], backgroundColor: ['#6366f1', '#e2e8f0'], borderWidth: 0, hoverOffset: 4 }],
+      },
+      options: {
+        responsive: false,
+        cutout: '65%',
+        plugins: { legend: { display: false } },
+      },
+    });
+    if (legend) {
+      legend.innerHTML = [
+        { label: 'Premium', color: '#6366f1', count: premium },
+        { label: 'Free', color: '#94a3b8', count: free },
+      ].map(i => `
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <span style="display:flex;align-items:center;gap:6px;">
+            <span style="width:8px;height:8px;border-radius:50%;background:${i.color};display:inline-block;"></span>
+            <span style="font-size:11px;color:#64748b;">${i.label}</span>
+          </span>
+          <span style="font-size:12px;font-weight:700;color:#0f172a;">${i.count} <span style="font-size:10px;color:#94a3b8;font-weight:400;">(${Math.round(i.count/total*100)}%)</span></span>
+        </div>
+      `).join('');
+    }
+  }
+
+  function renderProviderOverview(provData) {
+    const el = document.getElementById('providerOverviewList');
+    if (!el) return;
+    const provNames = { OPENAI: 'OpenAI GPT', CLAUDE: 'Anthropic Claude', GEMINI: 'Google Gemini' };
+    // Group by provider name
+    const grouped = {};
+    provData.forEach(p => {
+      const key = p.provider || p.name || 'Unknown';
+      if (!grouped[key]) grouped[key] = { total: 0, enabled: 0 };
+      grouped[key].total += p.count || 1;
+      if (p.enabled) grouped[key].enabled += p.count || 1;
+    });
+
+    const totalProviders = Object.values(grouped).reduce((s, g) => s + g.total, 0);
+    const enabledProviders = Object.values(grouped).reduce((s, g) => s + g.enabled, 0);
+    safeSet('valTotalProviders', totalProviders);
+    safeSet('valEnabledProviders', `${enabledProviders} enabled`);
+
+    if (Object.keys(grouped).length === 0) {
+      el.innerHTML = '<div style="font-size:12px;color:#94a3b8;text-align:center;padding:12px;">No providers configured yet.</div>';
       return;
     }
 
-    el.tblUsersBody.innerHTML = list.map(u => `
+    el.innerHTML = Object.entries(grouped).map(([name, g]) => `
+      <div class="provider-ov-row">
+        <div>
+          <div class="provider-ov-name">${provNames[name] || name}</div>
+          <div class="provider-ov-meta">${g.enabled} enabled &middot; ${g.total} total</div>
+        </div>
+        <div class="provider-ov-count">${g.total}</div>
+      </div>
+    `).join('');
+  }
+
+  function renderPerfMetrics(byDay) {
+    const days = Object.keys(byDay);
+    if (days.length === 0) return;
+    let totalCalls = 0, totalErrors = 0, totalDur = 0;
+    let peakDay = days[0], peakCount = 0;
+    days.forEach(d => {
+      totalCalls += byDay[d].count;
+      totalErrors += byDay[d].errors;
+      totalDur += byDay[d].avgDurationMs * byDay[d].count;
+      if (byDay[d].count > peakCount) { peakCount = byDay[d].count; peakDay = d; }
+    });
+    const avgDur = totalCalls > 0 ? Math.round(totalDur / totalCalls) : 0;
+    const errorRate = totalCalls > 0 ? ((totalErrors / totalCalls) * 100).toFixed(1) : '0.0';
+    const successRate = (100 - parseFloat(errorRate)).toFixed(1);
+    safeSet('perfAvgDuration', `${avgDur}ms`);
+    safeSet('perfTotalCalls', totalCalls.toLocaleString());
+    safeSet('perfErrorRate', `${errorRate}%`);
+    safeSet('perfSuccessRate', `${successRate}%`);
+    const peakDt = new Date(peakDay);
+    safeSet('perfPeakDay', peakDt.toLocaleDateString('en', { month: 'short', day: 'numeric' }) + ` (${peakCount})`);
+  }
+
+  function renderRecentLogs(logs) {
+    const el = document.getElementById('recentLogsList');
+    if (!el) return;
+    if (!logs || logs.length === 0) {
+      el.innerHTML = '<div style="font-size:12px;color:#94a3b8;text-align:center;padding:12px;">No logs yet.</div>';
+      return;
+    }
+    el.innerHTML = logs.map(log => {
+      const isErr = (log.statusCode || 200) >= 400;
+      const t = new Date(log.createdAt);
+      return `
+        <div class="log-row">
+          <span class="log-method">${log.method || 'GET'}</span>
+          <span class="log-path" title="${log.path || ''}">/${(log.path || '').replace(/^\//, '')}</span>
+          <span class="log-status ${isErr ? 'err' : 'ok'}">${log.statusCode || 200}</span>
+          <span class="log-dur">${log.durationMs || 0}ms</span>
+          <span class="log-time">${t.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })}</span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function loadMoreLogs() {
+    _logsPage += 1;
+    try {
+      const res = await apiRequest(`/admin/logs?page=${_logsPage}&pageSize=20`);
+      if (res?.data) {
+        const logList = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+        renderRecentLogs(logList);
+      }
+    } catch (err) {
+      console.warn('loadMoreLogs:', err);
+    }
+  }
+
+  function renderUsersTable(users, page = 1) {
+    const tbody = document.getElementById('tblUsersBody');
+    const pagination = document.getElementById('userTablePagination');
+    if (!tbody) return;
+
+    const PAGE_SIZE = 10;
+    const total = users.length;
+    const totalPages = Math.ceil(total / PAGE_SIZE);
+    const start = (page - 1) * PAGE_SIZE;
+    const slice = users.slice(start, start + PAGE_SIZE);
+
+    if (slice.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:16px;color:#64748b;">No users found.</td></tr>`;
+      if (pagination) pagination.innerHTML = '';
+      return;
+    }
+
+    tbody.innerHTML = slice.map(u => `
       <tr>
-        <td style="font-family:var(--font-mono);font-size:11px;">${u.id.substring(0, 8)}...</td>
-        <td style="font-weight:600;">${u.email}</td>
-        <td>${u.name || '—'}</td>
+        <td style="font-family:var(--font-mono);font-size:10px;color:#94a3b8;">${(u.id||'').substring(0, 8)}…</td>
+        <td style="font-weight:600;font-size:12px;">${u.email}</td>
+        <td style="font-size:12px;">${u.name || '—'}</td>
         <td><span class="badge-role">${u.role}</span></td>
-        <td>${u.isEmailVerified ? '✅ Yes' : '❌ No'}</td>
-        <td>${u.isActive ? '<span style="color:#10b981;">Active</span>' : '<span style="color:#ef4444;">Suspended</span>'}</td>
-        <td style="color:#64748b;font-size:11.5px;">${new Date(u.createdAt).toLocaleDateString()}</td>
+        <td style="font-size:12px;">${u.isEmailVerified ? '✅' : '❌'}</td>
+        <td>${u.isActive
+          ? '<span style="color:#10b981;font-weight:700;font-size:11px;">● Active</span>'
+          : '<span style="color:#ef4444;font-weight:700;font-size:11px;">● Suspended</span>'}</td>
+        <td><span style="font-size:10px;background:${u.subscription?.plan==='PREMIUM'?'#e0e7ff':'#f1f5f9'};color:${u.subscription?.plan==='PREMIUM'?'#3730a3':'#64748b'};padding:2px 7px;border-radius:999px;font-weight:700;">${u.subscription?.plan || 'FREE'}</span></td>
+        <td style="color:#94a3b8;font-size:11px;">${new Date(u.createdAt).toLocaleDateString()}</td>
+        <td style="white-space:nowrap;">
+          ${u.isActive
+            ? `<button class="tbl-action-btn suspend" onclick="window.EchoApp.adminSuspend('${u.id}')">Suspend</button>`
+            : `<button class="tbl-action-btn activate" onclick="window.EchoApp.adminReactivate('${u.id}')">Reactivate</button>`}
+          <button class="tbl-action-btn role" onclick="window.EchoApp.adminChangeRole('${u.id}','${u.role}')">${u.role === 'ADMIN' ? 'Make User' : 'Make Admin'}</button>
+        </td>
       </tr>
     `).join('');
+
+    // Pagination
+    if (pagination && totalPages > 1) {
+      let pHtml = `<span style="font-size:11px;color:#94a3b8;margin-right:8px;">${total} users</span>`;
+      pHtml += `<button class="page-btn" onclick="window.EchoApp.goUsersPage(${page-1})" ${page<=1?'disabled':''}>‹ Prev</button>`;
+      const startP = Math.max(1, page - 2);
+      const endP = Math.min(totalPages, page + 2);
+      for (let p = startP; p <= endP; p++) {
+        pHtml += `<button class="page-btn ${p===page?'active':''}" onclick="window.EchoApp.goUsersPage(${p})">${p}</button>`;
+      }
+      pHtml += `<button class="page-btn" onclick="window.EchoApp.goUsersPage(${page+1})" ${page>=totalPages?'disabled':''}>Next ›</button>`;
+      pagination.innerHTML = pHtml;
+    } else if (pagination) {
+      pagination.innerHTML = `<span style="font-size:11px;color:#94a3b8;">${total} users</span>`;
+    }
+  }
+
+  function goUsersPage(page) {
+    if (page < 1) return;
+    renderUsersTable(_allUsersCache, page);
+  }
+
+  function filterUsersTable(query) {
+    const q = (query || '').toLowerCase();
+    const filtered = q ? _allUsersCache.filter(u =>
+      (u.email || '').toLowerCase().includes(q) ||
+      (u.name || '').toLowerCase().includes(q)
+    ) : _allUsersCache;
+    renderUsersTable(filtered, 1);
+  }
+
+  async function adminSuspend(userId) {
+    const ok = await showConfirm('This will prevent the user from logging in and using the service.', 'Suspend User Account?');
+    if (!ok) return;
+    try {
+      await apiRequest(`/admin/users/${userId}/suspend`, { method: 'PATCH' });
+      const u = _allUsersCache.find(u => u.id === userId);
+      if (u) u.isActive = false;
+      renderUsersTable(_allUsersCache, 1);
+      showToast('User account suspended.', 'warning');
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  async function adminReactivate(userId) {
+    const ok = await showConfirm('This will restore the user\'s access to the platform.', 'Reactivate User Account?');
+    if (!ok) return;
+    try {
+      await apiRequest(`/admin/users/${userId}/reactivate`, { method: 'PATCH' });
+      const u = _allUsersCache.find(u => u.id === userId);
+      if (u) u.isActive = true;
+      renderUsersTable(_allUsersCache, 1);
+      showToast('User account reactivated! ✅', 'success');
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  async function adminChangeRole(userId, currentRole) {
+    const newRole = currentRole === 'ADMIN' ? 'USER' : 'ADMIN';
+    const ok = await showConfirm(`This will change the user's role to <strong>${newRole}</strong>.`, 'Change User Role?');
+    if (!ok) return;
+    try {
+      await apiRequest(`/admin/users/${userId}/role`, {
+        method: 'PATCH',
+        body: JSON.stringify({ role: newRole }),
+      });
+      const u = _allUsersCache.find(u => u.id === userId);
+      if (u) u.role = newRole;
+      renderUsersTable(_allUsersCache, 1);
+      showToast(`User role changed to ${newRole}.`, 'success');
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  async function applySubOverride() {
+    const userId = (document.getElementById('subOverrideUserId') || {}).value?.trim();
+    const plan = (document.getElementById('subOverridePlan') || {}).value;
+    const status = (document.getElementById('subOverrideStatus') || {}).value;
+    const limitRaw = (document.getElementById('subOverrideLimit') || {}).value;
+    if (!userId) { showToast('Please enter a User ID first.', 'warning'); return; }
+    const body = { plan, status };
+    if (limitRaw) body.dailyLimit = parseInt(limitRaw, 10);
+    try {
+      await apiRequest(`/admin/subscriptions/${userId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      });
+      showToast(`Subscription updated to ${plan} / ${status} 🎉`, 'success');
+      document.getElementById('subOverridePanel').style.display = 'none';
+    } catch (err) { showToast(err.message, 'error'); }
   }
 
   // =========================================================================
@@ -720,6 +1291,10 @@
     document.getElementById('btnAdminShortcut').addEventListener('click', () => setViewMode('admin'));
     el.btnReturnToExtension.addEventListener('click', () => setViewMode('sidebar'));
     el.btnRefreshAdminStats.addEventListener('click', loadAdminDashboard);
+
+    // Analytics day range selector
+    const daysSel = document.getElementById('selAnalyticsDays');
+    if (daysSel) daysSel.addEventListener('change', loadAdminDashboard);
 
     // Sidebar tab buttons
     document.querySelectorAll('.nav-tab-btn[data-tab]').forEach(btn => {
@@ -855,6 +1430,9 @@
     runSearch,
     openAuthModal,
     closeAuthModal,
+    setAuthMode,
+    toggleAuthMode,
+    handleAuthSubmit,
     loginWithCredentials,
     handleRegister,
     openProviderModal,
@@ -865,6 +1443,14 @@
     openApiModal,
     closeApiModal,
     saveApiBaseUrl,
+    // Admin
+    filterUsersTable,
+    goUsersPage,
+    adminSuspend,
+    adminReactivate,
+    adminChangeRole,
+    applySubOverride,
+    loadMoreLogs,
   };
 
   // Launch app

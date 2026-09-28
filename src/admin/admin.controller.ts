@@ -29,6 +29,13 @@ export class AdminController {
     return this.adminService.dashboardStats();
   }
 
+  @Get('stats')
+  @ApiOperation({ summary: 'Aggregate dashboard statistics (alias)' })
+  @ApiResponse({ status: 200, description: 'Counts of users, subscriptions, and usage' })
+  stats() {
+    return this.adminService.dashboardStats();
+  }
+
   @Get('users')
   @ApiOperation({ summary: 'List all users (paginated)' })
   @ApiResponse({ status: 200, description: 'Paginated list of users with subscription info' })
@@ -143,6 +150,13 @@ export class AdminController {
     return this.adminService.usageAnalytics(Number(days) || 7);
   }
 
+  @Get('usage')
+  @ApiOperation({ summary: 'API usage analytics grouped by day (alias)' })
+  @ApiResponse({ status: 200, description: 'Per-day request counts, error counts, avg duration' })
+  usage(@Query('days') days?: string) {
+    return this.adminService.usageAnalytics(Number(days) || 7);
+  }
+
   @Get('logs')
   @ApiOperation({ summary: 'Paginated raw request logs' })
   @ApiResponse({ status: 200, description: 'Paginated ApiUsageLog rows' })
@@ -154,6 +168,13 @@ export class AdminController {
   @ApiOperation({ summary: 'System / database health check' })
   @ApiResponse({ status: 200, description: 'ok/degraded status, DB connectivity, uptime' })
   systemHealth() {
+    return this.adminService.systemHealth();
+  }
+
+  @Get('health')
+  @ApiOperation({ summary: 'System / database health check (alias)' })
+  @ApiResponse({ status: 200, description: 'ok/degraded status, DB connectivity, uptime' })
+  health() {
     return this.adminService.systemHealth();
   }
 }

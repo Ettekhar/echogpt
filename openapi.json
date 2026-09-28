@@ -1,0 +1,2484 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "AppController_healthCheck",
+        "summary": "Public system liveness and health check endpoint",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Liveness status, uptime and current server time"
+          }
+        },
+        "tags": [
+          "System"
+        ]
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "operationId": "AuthController_register",
+        "summary": "Register a new user account",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Account created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Email already registered"
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "summary": "Login with email and password",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials"
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "operationId": "AuthController_refresh",
+        "summary": "Exchange a valid refresh token for a new token pair",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "New tokens issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Refresh token invalid or expired"
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout",
+        "summary": "Revoke a refresh token / end a session",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Logged out"
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/auth/verify-email": {
+      "post": {
+        "operationId": "AuthController_verifyEmail",
+        "summary": "(Bonus) Verify a user email using the token sent at registration",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyEmailDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email verified"
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      },
+      "get": {
+        "operationId": "AuthController_verifyEmailGet",
+        "summary": "(Bonus) Verify a user email via query param token",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Email verified"
+          }
+        },
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/users/me": {
+      "get": {
+        "operationId": "UsersController_getProfile",
+        "summary": "Get the current user's profile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Profile (password hash and verify token stripped)"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "UsersController_updateProfile",
+        "summary": "Update the current user's profile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated"
+          },
+          "400": {
+            "description": "Validation failed on the request body"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "UsersController_updateProfilePut",
+        "summary": "Update the current user's profile (PUT alias)",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "UsersController_deleteAccount",
+        "summary": "Delete (soft-delete) the current user's account",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Account soft-deleted; sessions revoked"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "User not found"
+          }
+        },
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/users/profile": {
+      "get": {
+        "operationId": "UsersController_getProfileAlias",
+        "summary": "Get the current user's profile (alias)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/users/me/password": {
+      "patch": {
+        "operationId": "UsersController_changePassword",
+        "summary": "Change the current password",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password changed; existing sessions revoked"
+          },
+          "400": {
+            "description": "New password same as current password"
+          },
+          "401": {
+            "description": "Current password is incorrect"
+          }
+        },
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/users/change-password": {
+      "post": {
+        "operationId": "UsersController_changePasswordPost",
+        "summary": "Change the current password (POST alias)",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "Users"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/subscriptions/status": {
+      "get": {
+        "operationId": "SubscriptionsController_getStatus",
+        "summary": "Get current subscription status",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Plan, status, and renewal/cancellation dates"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "Subscriptions"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/subscriptions/me": {
+      "get": {
+        "operationId": "SubscriptionsController_getStatusMe",
+        "summary": "Get current subscription status (alias)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "Subscriptions"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/subscriptions/usage": {
+      "get": {
+        "operationId": "SubscriptionsController_getUsage",
+        "summary": "Get remaining requests for today",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Daily limit, requests used, and requests remaining"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "Subscriptions"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/subscriptions/remaining": {
+      "get": {
+        "operationId": "SubscriptionsController_getRemaining",
+        "summary": "Get remaining requests for today (alias)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Daily limit, requests used, and requests remaining"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "Subscriptions"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/subscriptions/plan": {
+      "patch": {
+        "operationId": "SubscriptionsController_changePlan",
+        "summary": "Upgrade or downgrade subscription plan",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePlanDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Plan changed; usage limits updated accordingly"
+          },
+          "400": {
+            "description": "Validation failed (invalid plan value)"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "Subscriptions"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/subscriptions/upgrade": {
+      "post": {
+        "operationId": "SubscriptionsController_upgrade",
+        "summary": "Upgrade subscription to PREMIUM",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Upgraded to PREMIUM"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "Subscriptions"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/subscriptions/downgrade": {
+      "post": {
+        "operationId": "SubscriptionsController_downgrade",
+        "summary": "Downgrade subscription to FREE",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Downgraded to FREE"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "Subscriptions"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/subscriptions/cancel": {
+      "post": {
+        "operationId": "SubscriptionsController_cancel",
+        "summary": "Cancel the current subscription (reverts to Free at period end)",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Subscription marked as canceled"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "Subscriptions"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/providers": {
+      "post": {
+        "operationId": "ProvidersController_create",
+        "summary": "Add a new AI provider configuration (OpenAI / Claude / Gemini)",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProviderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Provider created; apiKeyPreview shows a masked key"
+          },
+          "400": {
+            "description": "Validation failed (missing/short apiKey, invalid enum, etc.)"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "AI Providers"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "ProvidersController_findAll",
+        "summary": "List the current user's configured AI providers",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Array of provider configs (keys never exposed)"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "AI Providers"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/providers/{id}": {
+      "get": {
+        "operationId": "ProvidersController_findOne",
+        "summary": "Get a single provider configuration",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Provider found"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "Provider not found or not owned by this user"
+          }
+        },
+        "tags": [
+          "AI Providers"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "ProvidersController_update",
+        "summary": "Edit a provider configuration (label, model, key rotation, etc.)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProviderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Provider updated"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "Provider not found or not owned by this user"
+          }
+        },
+        "tags": [
+          "AI Providers"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "ProvidersController_remove",
+        "summary": "Delete a provider configuration",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Provider removed"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "Provider not found or not owned by this user"
+          }
+        },
+        "tags": [
+          "AI Providers"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/providers/{id}/enable": {
+      "patch": {
+        "operationId": "ProvidersController_enable",
+        "summary": "Enable a provider",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Provider enabled"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "Provider not found or not owned by this user"
+          }
+        },
+        "tags": [
+          "AI Providers"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/providers/{id}/disable": {
+      "patch": {
+        "operationId": "ProvidersController_disable",
+        "summary": "Disable a provider",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Provider disabled"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "Provider not found or not owned by this user"
+          }
+        },
+        "tags": [
+          "AI Providers"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/providers/default": {
+      "get": {
+        "operationId": "ProvidersController_getDefault",
+        "summary": "Get the default AI provider configuration",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Default provider found"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "No default provider configured"
+          }
+        },
+        "tags": [
+          "AI Providers"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/providers/{id}/default": {
+      "patch": {
+        "operationId": "ProvidersController_setDefaultPatch",
+        "summary": "Set provider as default",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Provider set as default"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "Provider not found or not owned by this user"
+          }
+        },
+        "tags": [
+          "AI Providers"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "ProvidersController_setDefaultPost",
+        "summary": "Set provider as default (POST alias)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Provider set as default"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "AI Providers"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/providers/{id}/health-check": {
+      "post": {
+        "operationId": "ProvidersController_healthCheck",
+        "summary": "Ping the provider's API to confirm the stored key is valid",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "{ healthy: boolean, checkedAt: Date }"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "Provider not found or not owned by this user"
+          }
+        },
+        "tags": [
+          "AI Providers"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/providers/{id}/health": {
+      "get": {
+        "operationId": "ProvidersController_healthCheckGet",
+        "summary": "Check provider health (GET alias)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "AI Providers"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "ProvidersController_healthCheckPost",
+        "summary": "Check provider health (POST alias)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "AI Providers"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/chat/messages": {
+      "post": {
+        "operationId": "ChatController_sendMessage",
+        "summary": "Send a prompt and receive an AI response",
+        "description": "Sends a prompt to the selected (or default) AI provider and returns the full response in one shot. For an incrementally-streamed response, use POST /chat/messages/stream instead.",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Persisted user + assistant messages"
+          },
+          "400": {
+            "description": "Validation failed on the request body"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Daily usage limit reached, or provider disabled"
+          },
+          "404": {
+            "description": "No matching provider configured for this user"
+          }
+        },
+        "tags": [
+          "Chat"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/chat/send": {
+      "post": {
+        "operationId": "ChatController_sendMessageAlias",
+        "summary": "Send a prompt and receive an AI response (alias)",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "Chat"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/chat/messages/stream": {
+      "post": {
+        "operationId": "ChatController_sendMessageStream",
+        "summary": "(Bonus) Send a prompt and stream the AI response as Server-Sent Events",
+        "description": "Same behavior as POST /chat/messages, but the response is `text/event-stream`: a series of `event: chunk` frames as tokens arrive, followed by one `event: done` frame with the persisted message, or `event: error` if something went wrong.",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "text/event-stream of chunk/done/error frames"
+          },
+          "400": {
+            "description": "Validation failed on the request body"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Daily usage limit reached, or provider disabled"
+          }
+        },
+        "tags": [
+          "Chat"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/chat/stream": {
+      "post": {
+        "operationId": "ChatController_sendMessageStreamAlias",
+        "summary": "(Bonus) Send prompt and stream AI response (alias)",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "Chat"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/chat/conversations": {
+      "get": {
+        "operationId": "ChatController_listConversations",
+        "summary": "List the current user's conversations",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Array of conversations, most recent first"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "Chat"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/chat/history": {
+      "get": {
+        "operationId": "ChatController_listHistoryAlias",
+        "summary": "List the current user's conversations (alias)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "Chat"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/chat/conversations/{id}": {
+      "get": {
+        "operationId": "ChatController_getHistory",
+        "summary": "Get full message history for a conversation",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Conversation with its ordered messages"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "Conversation not found or not owned by this user"
+          }
+        },
+        "tags": [
+          "Chat"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "ChatController_deleteConversation",
+        "summary": "Delete a conversation and its messages",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Conversation deleted"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "404": {
+            "description": "Conversation not found or not owned by this user"
+          }
+        },
+        "tags": [
+          "Chat"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/search/query": {
+      "post": {
+        "operationId": "SearchController_search",
+        "summary": "Run an AI-assisted web search query",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchQueryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Search results (served from cache when available within the cache window)"
+          },
+          "400": {
+            "description": "Validation failed on the request body"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Daily usage limit reached for the current plan"
+          }
+        },
+        "tags": [
+          "Web Search"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/search": {
+      "post": {
+        "operationId": "SearchController_searchRoot",
+        "summary": "Run an AI-assisted web search query (root alias)",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchQueryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Search results (served from cache when available within the cache window)"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "Web Search"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/search/history": {
+      "get": {
+        "operationId": "SearchController_history",
+        "summary": "Paginated history of the user's past searches",
+        "parameters": [
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of past searches, most recent first"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "Web Search"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/search/recent": {
+      "get": {
+        "operationId": "SearchController_recent",
+        "summary": "Most recent distinct searches",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of recent distinct search queries"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "Web Search"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/search/suggestions": {
+      "get": {
+        "operationId": "SearchController_suggestions",
+        "summary": "Autocomplete suggestions from the user's own search history",
+        "parameters": [
+          {
+            "name": "prefix",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of suggested query strings"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          }
+        },
+        "tags": [
+          "Web Search"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/admin/dashboard": {
+      "get": {
+        "operationId": "AdminController_dashboard",
+        "summary": "Aggregate dashboard statistics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Counts of users, subscriptions, and usage"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Authenticated but not an ADMIN"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/admin/stats": {
+      "get": {
+        "operationId": "AdminController_stats",
+        "summary": "Aggregate dashboard statistics (alias)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Counts of users, subscriptions, and usage"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Authenticated but not an ADMIN"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "operationId": "AdminController_users",
+        "summary": "List all users (paginated)",
+        "parameters": [
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of users with subscription info"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Authenticated but not an ADMIN"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/admin/users/{id}": {
+      "get": {
+        "operationId": "AdminController_userDetail",
+        "summary": "Get a single user (admin view)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User found"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Authenticated but not an ADMIN"
+          },
+          "404": {
+            "description": "User not found"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/admin/users/{id}/role": {
+      "patch": {
+        "operationId": "AdminController_setRole",
+        "summary": "Change a user's role (USER / ADMIN)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRoleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Role updated"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Authenticated but not an ADMIN"
+          },
+          "404": {
+            "description": "User not found"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/admin/users/{id}/suspend": {
+      "patch": {
+        "operationId": "AdminController_suspend",
+        "summary": "Suspend (deactivate) a user account",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account suspended"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Authenticated but not an ADMIN"
+          },
+          "404": {
+            "description": "User not found"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/admin/users/{id}/reactivate": {
+      "patch": {
+        "operationId": "AdminController_reactivate",
+        "summary": "Reactivate a suspended user account",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account reactivated"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Authenticated but not an ADMIN"
+          },
+          "404": {
+            "description": "User not found"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/admin/subscriptions": {
+      "get": {
+        "operationId": "AdminController_subscriptions",
+        "summary": "Subscription overview across all users, grouped by plan and status",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Aggregate counts per plan/status combination"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Authenticated but not an ADMIN"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/admin/subscriptions/{userId}": {
+      "get": {
+        "operationId": "AdminController_getUserSubscription",
+        "summary": "Get a specific user's full subscription record",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Subscription found"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Authenticated but not an ADMIN"
+          },
+          "404": {
+            "description": "User has no subscription record"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      },
+      "patch": {
+        "operationId": "AdminController_overrideSubscription",
+        "summary": "Override a specific user's subscription (plan, status, or daily limit)",
+        "description": "Direct admin control distinct from the self-service /subscriptions/* endpoints - e.g. to comp a Premium plan, correct a failed payment webhook, or force-cancel for abuse.",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OverrideSubscriptionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Subscription updated"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Authenticated but not an ADMIN"
+          },
+          "404": {
+            "description": "User has no subscription record"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/admin/providers": {
+      "get": {
+        "operationId": "AdminController_providers",
+        "summary": "AI provider overview across all users, grouped by provider and status",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Aggregate counts per provider/enabled combination"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Authenticated but not an ADMIN"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/admin/users/{userId}/providers": {
+      "get": {
+        "operationId": "AdminController_listUserProviders",
+        "summary": "List every AI provider a specific user has configured",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of the user's providers (keys never exposed)"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Authenticated but not an ADMIN"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/admin/providers/{id}/disable": {
+      "patch": {
+        "operationId": "AdminController_disableProvider",
+        "summary": "Force-disable any user's provider (e.g. reported abuse, leaked key)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Provider disabled"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Authenticated but not an ADMIN"
+          },
+          "404": {
+            "description": "Provider not found"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/admin/providers/{id}/enable": {
+      "patch": {
+        "operationId": "AdminController_enableProvider",
+        "summary": "Re-enable any user's provider",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Provider enabled"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Authenticated but not an ADMIN"
+          },
+          "404": {
+            "description": "Provider not found"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/admin/providers/{id}": {
+      "delete": {
+        "operationId": "AdminController_deleteProvider",
+        "summary": "Force-delete any user's provider configuration",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Provider removed"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Authenticated but not an ADMIN"
+          },
+          "404": {
+            "description": "Provider not found"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/admin/usage-analytics": {
+      "get": {
+        "operationId": "AdminController_usageAnalytics",
+        "summary": "API usage analytics grouped by day",
+        "parameters": [
+          {
+            "name": "days",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Per-day request counts, error counts, avg duration"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Authenticated but not an ADMIN"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/admin/usage": {
+      "get": {
+        "operationId": "AdminController_usage",
+        "summary": "API usage analytics grouped by day (alias)",
+        "parameters": [
+          {
+            "name": "days",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Per-day request counts, error counts, avg duration"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Authenticated but not an ADMIN"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/admin/logs": {
+      "get": {
+        "operationId": "AdminController_logs",
+        "summary": "Paginated raw request logs",
+        "parameters": [
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated ApiUsageLog rows"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Authenticated but not an ADMIN"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/admin/system-health": {
+      "get": {
+        "operationId": "AdminController_systemHealth",
+        "summary": "System / database health check",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok/degraded status, DB connectivity, uptime"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Authenticated but not an ADMIN"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    },
+    "/admin/health": {
+      "get": {
+        "operationId": "AdminController_health",
+        "summary": "System / database health check (alias)",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "ok/degraded status, DB connectivity, uptime"
+          },
+          "401": {
+            "description": "Missing or invalid access token"
+          },
+          "403": {
+            "description": "Authenticated but not an ADMIN"
+          }
+        },
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "access-token": []
+          }
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "EchoGPT Backend API",
+    "description": "Production-ready backend for the EchoGPT Chrome Extension: auth, subscriptions, AI provider management, chat, web search, and admin analytics.",
+    "version": "1.0.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "Auth",
+      "description": ""
+    },
+    {
+      "name": "Users",
+      "description": ""
+    },
+    {
+      "name": "Subscriptions",
+      "description": ""
+    },
+    {
+      "name": "AI Providers",
+      "description": ""
+    },
+    {
+      "name": "Chat",
+      "description": ""
+    },
+    {
+      "name": "Web Search",
+      "description": ""
+    },
+    {
+      "name": "Admin",
+      "description": ""
+    }
+  ],
+  "servers": [
+    {
+      "url": "http://localhost:3000/api/v1",
+      "description": "Local"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "access-token": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "RegisterDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "jane@example.com"
+          },
+          "password": {
+            "type": "string",
+            "example": "StrongPass123!",
+            "minLength": 8
+          },
+          "name": {
+            "type": "string",
+            "example": "Jane Doe"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "AuthResponseDto": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "refreshToken": {
+            "type": "string"
+          },
+          "user": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "accessToken",
+          "refreshToken",
+          "user"
+        ]
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "jane@example.com"
+          },
+          "password": {
+            "type": "string",
+            "example": "StrongPass123!"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "RefreshTokenDto": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "refreshToken"
+        ]
+      },
+      "VerifyEmailDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ]
+      },
+      "UpdateProfileDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Jane Doe"
+          }
+        }
+      },
+      "ChangePasswordDto": {
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string"
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ]
+      },
+      "ChangePlanDto": {
+        "type": "object",
+        "properties": {
+          "plan": {
+            "type": "string",
+            "enum": [
+              "FREE",
+              "PREMIUM"
+            ]
+          }
+        },
+        "required": [
+          "plan"
+        ]
+      },
+      "CreateProviderDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "OPENAI",
+              "CLAUDE",
+              "GEMINI"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "description": "Friendly label, e.g. \"Work OpenAI key\""
+          },
+          "apiKey": {
+            "type": "string",
+            "description": "Plaintext API key - encrypted at rest, never returned again"
+          },
+          "model": {
+            "type": "string"
+          },
+          "baseUrl": {
+            "type": "string",
+            "description": "Override base URL (self-hosted / proxy endpoints)"
+          },
+          "isDefault": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "name",
+          "apiKey"
+        ]
+      },
+      "UpdateProviderDto": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "apiKey": {
+            "type": "string",
+            "description": "Provide only to rotate the stored key"
+          },
+          "model": {
+            "type": "string"
+          },
+          "baseUrl": {
+            "type": "string"
+          },
+          "isEnabled": {
+            "type": "boolean"
+          },
+          "isDefault": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SendMessageDto": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "example": "Summarize this page for me"
+          },
+          "message": {
+            "type": "string",
+            "example": "Summarize this page for me"
+          },
+          "content": {
+            "type": "string",
+            "example": "Summarize this page for me"
+          },
+          "conversationId": {
+            "type": "string",
+            "description": "Existing conversation to append to; omit to start a new one"
+          },
+          "providerId": {
+            "type": "string",
+            "description": "Specific provider id to use; omits to use the default provider"
+          }
+        }
+      },
+      "SearchQueryDto": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "example": "latest NestJS release notes"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "UpdateUserRoleDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "USER",
+              "ADMIN"
+            ]
+          }
+        },
+        "required": [
+          "role"
+        ]
+      },
+      "OverrideSubscriptionDto": {
+        "type": "object",
+        "properties": {
+          "plan": {
+            "type": "string",
+            "enum": [
+              "FREE",
+              "PREMIUM"
+            ],
+            "description": "Force the user's plan"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "CANCELED",
+              "EXPIRED",
+              "PAST_DUE"
+            ],
+            "description": "Force the user's subscription status"
+          },
+          "dailyLimit": {
+            "type": "number",
+            "description": "Override the daily request limit",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}

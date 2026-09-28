@@ -527,168 +527,116 @@
       </div>
     </aside>
 
-    <!-- FULL ADMIN PORTAL VIEW (For Recruiter Evaluation) -->
+    <!-- FULL ADMIN PORTAL VIEW (Comprehensive Analytics Dashboard) -->
     <section class="admin-portal-view hidden" id="adminPortalView">
+      <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
       <div class="admin-header-row">
         <div>
-          <h1 class="admin-title">Admin Operations & Analytics</h1>
-          <p class="admin-subtitle">Real-time health, users, subscriptions, and AI provider audit logs from PostgreSQL.</p>
+          <h1 class="admin-title">Admin Analytics &amp; Operations</h1>
+          <p class="admin-subtitle">Real-time metrics, usage analytics, user management, and AI provider audit from PostgreSQL.</p>
         </div>
         <div class="admin-actions">
+          <select id="selAnalyticsDays" class="admin-days-select">
+            <option value="7" selected>Last 7 days</option>
+            <option value="14">Last 14 days</option>
+            <option value="30">Last 30 days</option>
+          </select>
           <button id="btnRefreshAdminStats" class="btn-admin-action">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-            Refresh Metrics
+            Refresh
           </button>
-          <button id="btnReturnToExtension" class="btn-admin-action primary">
-            ← Back to Extension View
-          </button>
+          <button id="btnReturnToExtension" class="btn-admin-action primary">Back to Extension</button>
         </div>
       </div>
-
-      <!-- Stat Metric Cards -->
-      <div class="metrics-grid">
-        <div class="metric-card">
-          <div class="metric-head">
-            <span class="m-title">Total Users</span>
-            <span class="m-icon">👥</span>
+      <div class="metrics-grid-6">
+        <div class="metric-card kpi-blue"><div class="metric-head"><span class="m-title">Total Users</span><span class="m-icon-lg">&#128101;</span></div><div class="m-value" id="valTotalUsers">&mdash;</div><div class="m-sub-row"><span class="m-badge green" id="valActiveUsers">&mdash; active</span><span class="m-note-sm">Registered</span></div></div>
+        <div class="metric-card kpi-purple"><div class="metric-head"><span class="m-title">Subscriptions</span><span class="m-icon-lg">&#128081;</span></div><div class="m-value" id="valActiveSubscriptions">&mdash;</div><div class="m-sub-row"><span class="m-badge amber" id="valFreeSubs">&mdash; free</span><span class="m-note-sm">Premium paid</span></div></div>
+        <div class="metric-card kpi-green"><div class="metric-head"><span class="m-title">Requests Today</span><span class="m-icon-lg">&#9889;</span></div><div class="m-value" id="valTotalRequests">&mdash;</div><div class="m-sub-row"><span class="m-badge blue" id="valTotalMessages">&mdash; messages</span><span class="m-note-sm">Via interceptor</span></div></div>
+        <div class="metric-card kpi-orange"><div class="metric-head"><span class="m-title">Conversations</span><span class="m-icon-lg">&#128172;</span></div><div class="m-value" id="valTotalConversations">&mdash;</div><div class="m-sub-row"><span class="m-badge pink" id="valTotalSearches">&mdash; searches</span><span class="m-note-sm">AI sessions</span></div></div>
+        <div class="metric-card kpi-teal"><div class="metric-head"><span class="m-title">System Health</span><span class="m-icon-lg">&#128154;</span></div><div class="m-value" id="valSystemHealth">ONLINE</div><div class="m-sub-row"><span class="m-badge green" id="valUptimeBadge">&mdash;</span><span class="m-note-sm" id="lblUptime">DB: Checking...</span></div></div>
+        <div class="metric-card kpi-rose"><div class="metric-head"><span class="m-title">AI Providers</span><span class="m-icon-lg">&#129302;</span></div><div class="m-value" id="valTotalProviders">&mdash;</div><div class="m-sub-row"><span class="m-badge green" id="valEnabledProviders">&mdash; enabled</span><span class="m-note-sm">Configured keys</span></div></div>
+      </div>
+      <div class="admin-charts-row">
+        <div class="admin-chart-card chart-wide">
+          <div class="chart-card-header">
+            <div><h3 class="chart-title">API Request Volume (Daily)</h3><p class="chart-subtitle">Requests &amp; errors per day</p></div>
+            <div class="chart-legend"><span class="legend-dot" style="background:#6366f1;"></span><span>Requests</span><span class="legend-dot" style="background:#f43f5e;margin-left:12px;"></span><span>Errors</span></div>
           </div>
-          <div class="m-value" id="valTotalUsers">—</div>
-          <div class="m-note">Registered in database</div>
+          <div style="position:relative;height:200px;"><canvas id="usageChart"></canvas></div>
+          <div id="usageChartEmpty" class="chart-empty-hint hidden">No analytics data yet.</div>
         </div>
-
-        <div class="metric-card">
-          <div class="metric-head">
-            <span class="m-title">Active Subscriptions</span>
-            <span class="m-icon">👑</span>
-          </div>
-          <div class="m-value" id="valActiveSubscriptions">—</div>
-          <div class="m-note">Premium & Free tiers</div>
-        </div>
-
-        <div class="metric-card">
-          <div class="metric-head">
-            <span class="m-title">Requests Processed</span>
-            <span class="m-icon">⚡</span>
-          </div>
-          <div class="m-value" id="valTotalRequests">—</div>
-          <div class="m-note">Tracked via UsageInterceptor</div>
-        </div>
-
-        <div class="metric-card">
-          <div class="metric-head">
-            <span class="m-title">System Health</span>
-            <span class="m-icon">💚</span>
-          </div>
-          <div class="m-value" id="valSystemHealth">ONLINE</div>
-          <div class="m-note" id="lblUptime">PostgreSQL: Connected</div>
+        <div class="admin-chart-card chart-narrow">
+          <div class="chart-card-header"><div><h3 class="chart-title">Plan Distribution</h3><p class="chart-subtitle">Subscription split</p></div></div>
+          <div style="position:relative;height:160px;display:flex;align-items:center;justify-content:center;"><canvas id="subChart" width="160" height="160"></canvas></div>
+          <div id="subChartLegend" style="display:flex;flex-direction:column;gap:6px;margin-top:10px;font-size:12px;"></div>
         </div>
       </div>
-
-      <!-- Users & Activity Table -->
+      <div class="admin-two-col-row">
+        <div class="admin-panel-card">
+          <div class="panel-header"><h3 class="panel-title">AI Provider Overview</h3><span class="panel-badge">All users</span></div>
+          <div id="providerOverviewList"><div class="shimmer-row"></div><div class="shimmer-row" style="width:70%;"></div></div>
+          <div class="panel-divider"></div>
+          <div class="panel-header" style="margin-top:0;"><h3 class="panel-title">Performance KPIs</h3><span class="panel-badge">7-day avg</span></div>
+          <div class="perf-metrics-grid">
+            <div class="perf-kpi"><div class="perf-kpi-label">Avg Response</div><div class="perf-kpi-value" id="perfAvgDuration">&mdash;</div></div>
+            <div class="perf-kpi"><div class="perf-kpi-label">Total Calls</div><div class="perf-kpi-value" id="perfTotalCalls">&mdash;</div></div>
+            <div class="perf-kpi"><div class="perf-kpi-label">Error Rate</div><div class="perf-kpi-value error-red" id="perfErrorRate">&mdash;</div></div>
+            <div class="perf-kpi"><div class="perf-kpi-label">Success Rate</div><div class="perf-kpi-value success-green" id="perfSuccessRate">&mdash;</div></div>
+            <div class="perf-kpi"><div class="perf-kpi-label">Peak Day</div><div class="perf-kpi-value" id="perfPeakDay">&mdash;</div></div>
+            <div class="perf-kpi"><div class="perf-kpi-label">Server Uptime</div><div class="perf-kpi-value success-green" id="perfUptime">&mdash;</div></div>
+          </div>
+        </div>
+        <div class="admin-panel-card">
+          <div class="panel-header"><h3 class="panel-title">Recent API Logs</h3><button class="mini-action-btn" onclick="window.EchoApp.loadMoreLogs()">Load More</button></div>
+          <div id="recentLogsList" class="recent-logs-wrap"><div class="shimmer-row"></div><div class="shimmer-row" style="width:85%;"></div><div class="shimmer-row" style="width:60%;"></div></div>
+        </div>
+      </div>
+      <div class="admin-table-container" id="subOverridePanel" style="display:none;">
+        <div class="table-header-bar"><h3>Override User Subscription</h3><button class="mini-action-btn" onclick="document.getElementById('subOverridePanel').style.display='none'">Close</button></div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;padding:16px;">
+          <input type="text" id="subOverrideUserId" placeholder="User ID" class="mini-search-input" style="flex:1;min-width:200px;">
+          <select id="subOverridePlan" class="admin-days-select"><option value="FREE">FREE Plan</option><option value="PREMIUM">PREMIUM Plan</option></select>
+          <select id="subOverrideStatus" class="admin-days-select"><option value="ACTIVE">ACTIVE</option><option value="CANCELED">CANCELED</option><option value="EXPIRED">EXPIRED</option></select>
+          <input type="number" id="subOverrideLimit" placeholder="Daily Limit (optional)" class="mini-search-input" style="width:180px;">
+          <button class="btn-admin-action primary" onclick="window.EchoApp.applySubOverride()">Apply Override</button>
+        </div>
+      </div>
       <div class="admin-table-container">
         <div class="table-header-bar">
-          <h3>Registered Users (Prisma / Users table)</h3>
-          <span class="badge-role">Admin Access</span>
+          <div><h3>Registered Users</h3><span style="font-size:11px;color:#94a3b8;">Suspend, reactivate, or change roles</span></div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input type="text" id="userSearchInput" placeholder="Search email or name..." class="mini-search-input" oninput="window.EchoApp.filterUsersTable(this.value)">
+            <button class="mini-action-btn" onclick="document.getElementById('subOverridePanel').style.display='block'">Override Subscription</button>
+            <span class="badge-role">Admin Access</span>
+          </div>
         </div>
         <div class="table-responsive">
           <table class="admin-table" id="tblUsers">
-            <thead>
-              <tr>
-                <th>User ID</th>
-                <th>Email</th>
-                <th>Name</th>
-                <th>Role</th>
-                <th>Verified</th>
-                <th>Status</th>
-                <th>Created At</th>
-              </tr>
-            </thead>
-            <tbody id="tblUsersBody">
-              <tr><td colspan="7" class="loading-cell">Loading registered users...</td></tr>
-            </tbody>
+            <thead><tr><th>ID</th><th>Email</th><th>Name</th><th>Role</th><th>Verified</th><th>Status</th><th>Plan</th><th>Created</th><th>Actions</th></tr></thead>
+            <tbody id="tblUsersBody"><tr><td colspan="9" class="loading-cell">Loading users...</td></tr></tbody>
           </table>
         </div>
+        <div class="table-pagination" id="userTablePagination"></div>
       </div>
-
-      <!-- AppifyDevs Internship Technical Evaluation & Architecture Overview -->
-      <div class="admin-table-container" style="margin-top:24px;background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:24px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px;border-bottom:1px solid #f1f5f9;padding-bottom:14px;">
-          <div>
-            <h3 style="font-size:16px;font-weight:700;color:#0f172a;margin-bottom:4px;">AppifyDevs Technical Evaluation — Assignment Compliance</h3>
-            <p style="font-size:12px;color:#64748b;">EchoGPT Backend REST API Development using NestJS, PostgreSQL & Swagger</p>
-          </div>
+      <div class="admin-table-container" style="margin-top:24px;padding:24px;">
+        <div class="table-header-bar" style="margin-bottom:16px;">
+          <div><h3>API Reference &amp; Assignment Compliance</h3><p style="font-size:12px;color:#64748b;margin:0;">EchoGPT NestJS Backend &middot; PostgreSQL &middot; Swagger</p></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <a href="http://localhost:3001/api/v1/docs" target="_blank" class="pill-btn primary" style="font-size:11px;text-decoration:none;">📄 Interactive Swagger Docs</a>
-            <a href="http://localhost:3001/postman_collection.json" target="_blank" download class="pill-btn" style="background:#f1f5f9;font-size:11px;text-decoration:none;">📥 Postman Collection</a>
-            <a href="https://chromewebstore.google.com/detail/echogpt-multi-ai-chat-sid/negimdcamohmoheiifgecbjgjepkcfhj" target="_blank" class="pill-btn" style="background:#f8fafc;border:1px solid #e2e8f0;font-size:11px;text-decoration:none;">🔗 Chrome Extension Reference</a>
+            <a href="http://localhost:3001/api/v1/docs" target="_blank" class="pill-btn primary" style="font-size:11px;text-decoration:none;">Swagger Docs</a>
+            <a href="http://localhost:3001/postman_collection.json" target="_blank" download class="pill-btn" style="background:#f1f5f9;font-size:11px;text-decoration:none;">Postman</a>
           </div>
         </div>
-
-        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;">
-          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;">
-            <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:6px;">1. Authentication (JWT + Refresh)</div>
-            <ul style="font-size:11.5px;color:#475569;margin:0;padding-left:18px;line-height:1.6;">
-              <li><code>POST /api/v1/auth/register</code> — Bcrypt hash</li>
-              <li><code>POST /api/v1/auth/login</code> — JWT Access & Refresh</li>
-              <li><code>POST /api/v1/auth/refresh</code> — Token rotation</li>
-              <li><code>POST /api/v1/auth/logout</code> — Invalidate sessions</li>
-              <li><code>POST /api/v1/auth/verify-email</code> — Verification bonus</li>
-            </ul>
-          </div>
-
-          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;">
-            <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:6px;">2. User Management & Roles</div>
-            <ul style="font-size:11.5px;color:#475569;margin:0;padding-left:18px;line-height:1.6;">
-              <li><code>GET /api/v1/users/me</code> — User profile</li>
-              <li><code>PATCH /api/v1/users/me</code> — Update details</li>
-              <li><code>PATCH /api/v1/users/me/password</code> — Change password</li>
-              <li><code>DELETE /api/v1/users/me</code> — Soft/hard delete</li>
-              <li>Roles Guard: <code>ADMIN</code> vs <code>USER</code></li>
-            </ul>
-          </div>
-
-          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;">
-            <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:6px;">3. Subscription & Rate Limits</div>
-            <ul style="font-size:11.5px;color:#475569;margin:0;padding-left:18px;line-height:1.6;">
-              <li><code>GET /api/v1/subscriptions/status</code> — Current plan</li>
-              <li><code>GET /api/v1/subscriptions/usage</code> — Remaining requests</li>
-              <li><code>PATCH /api/v1/subscriptions/plan</code> — Free ↔ Premium</li>
-              <li>Daily request tracking with quota enforcement</li>
-            </ul>
-          </div>
-
-          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;">
-            <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:6px;">4. Multi-AI Provider Management</div>
-            <ul style="font-size:11.5px;color:#475569;margin:0;padding-left:18px;line-height:1.6;">
-              <li>Models: <strong>OpenAI, Claude, Google Gemini</strong></li>
-              <li><code>POST /api/v1/providers</code> — Encrypt key (AES-256-GCM)</li>
-              <li><code>POST /api/v1/providers/:id/health-check</code> — Live ping</li>
-              <li>Enable/Disable, default model selection</li>
-            </ul>
-          </div>
-
-          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;">
-            <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:6px;">5. Chat & Streaming API</div>
-            <ul style="font-size:11.5px;color:#475569;margin:0;padding-left:18px;line-height:1.6;">
-              <li><code>POST /api/v1/chat/messages</code> — AI prompt & response</li>
-              <li><code>POST /api/v1/chat/messages/stream</code> — SSE streaming bonus</li>
-              <li><code>GET /api/v1/chat/conversations</code> — History</li>
-              <li>Full multi-turn history passed to provider</li>
-            </ul>
-          </div>
-
-          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px;">
-            <div style="font-weight:700;font-size:13px;color:#0f172a;margin-bottom:6px;">6. Web Search & AI Synthesis</div>
-            <ul style="font-size:11.5px;color:#475569;margin:0;padding-left:18px;line-height:1.6;">
-              <li><code>POST /api/v1/search/query</code> — Live web links + AI summary</li>
-              <li><code>GET /api/v1/search/history</code> & <code>recent</code> — Tracking</li>
-              <li><code>GET /api/v1/search/suggestions</code> — Autocomplete</li>
-              <li>30-minute query cache in PostgreSQL</li>
-            </ul>
-          </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:14px;">
+          <div class="api-ref-card"><div class="api-ref-title">1. Authentication</div><ul class="api-ref-list"><li><code>POST /auth/register</code> Bcrypt hash</li><li><code>POST /auth/login</code> JWT Access+Refresh</li><li><code>POST /auth/refresh</code> Token rotation</li><li><code>POST /auth/logout</code> Invalidate session</li></ul></div>
+          <div class="api-ref-card"><div class="api-ref-title">2. User Management</div><ul class="api-ref-list"><li><code>GET /users/me</code> Profile</li><li><code>PATCH /users/me</code> Update details</li><li><code>PATCH /users/me/password</code> Change pw</li><li><code>DELETE /users/me</code> Delete account</li></ul></div>
+          <div class="api-ref-card"><div class="api-ref-title">3. Subscriptions</div><ul class="api-ref-list"><li><code>GET /subscriptions/status</code> Current plan</li><li><code>GET /subscriptions/usage</code> Quota info</li><li><code>PATCH /subscriptions/plan</code> Free/Premium</li><li>Daily request enforcement</li></ul></div>
+          <div class="api-ref-card"><div class="api-ref-title">4. AI Providers</div><ul class="api-ref-list"><li>OpenAI, Claude, Gemini</li><li><code>POST /providers</code> AES-256-GCM encrypt</li><li><code>POST /providers/:id/health-check</code></li><li>Enable / Disable / Default model</li></ul></div>
+          <div class="api-ref-card"><div class="api-ref-title">5. Chat &amp; Streaming</div><ul class="api-ref-list"><li><code>POST /chat/messages</code> AI response</li><li><code>POST /chat/messages/stream</code> SSE</li><li><code>GET /chat/conversations</code> History</li><li>Multi-turn context</li></ul></div>
+          <div class="api-ref-card"><div class="api-ref-title">6. Web Search</div><ul class="api-ref-list"><li><code>POST /search/query</code> AI summary</li><li><code>GET /search/history</code> Logs</li><li><code>GET /search/suggestions</code> Autocomplete</li><li>30-min PostgreSQL cache</li></ul></div>
         </div>
       </div>
     </section>
+
 
   </main>
 
@@ -698,16 +646,26 @@
       <div class="modal-header">
         <div class="modal-brand">
           <span class="brand-logo-small">⚡</span>
-          <span class="modal-brand-title">EchoGPT Access</span>
+          <span class="modal-brand-title" id="authModalTitle">EchoGPT Access</span>
         </div>
         <button class="modal-close" onclick="window.EchoApp.closeAuthModal()">✕</button>
       </div>
 
       <div class="modal-body">
-        <p class="modal-tagline">Sign in or create an account to test full backend capabilities.</p>
+        <!-- Segmented Tab Switcher: Sign In / Create Account -->
+        <div class="auth-tabs-segmented">
+          <button type="button" class="auth-tab-btn active" id="tabAuthLogin" onclick="window.EchoApp.setAuthMode('login')">
+            Sign In
+          </button>
+          <button type="button" class="auth-tab-btn" id="tabAuthRegister" onclick="window.EchoApp.setAuthMode('register')">
+            Create Account
+          </button>
+        </div>
+
+        <p class="modal-tagline" id="authModalTagline">Sign in or create an account to test full backend capabilities.</p>
 
         <!-- Recruiter One-Click Quick Logins -->
-        <div class="quick-recruiter-box">
+        <div class="quick-recruiter-box" id="recruiterQuickBox">
           <span class="quick-title">⚡ Recruiter One-Click Sign In:</span>
           <div class="quick-buttons-row">
             <button class="btn-quick-login" onclick="window.EchoApp.loginWithCredentials('admin@echogpt.app', 'ChangeMe123!')">
@@ -719,9 +677,13 @@
           </div>
         </div>
 
-        <div class="divider-text"><span>OR USE EMAIL</span></div>
+        <div class="divider-text" id="authDivider"><span>OR USE EMAIL</span></div>
 
         <form id="formAuth" onsubmit="window.EchoApp.handleAuthSubmit(event)">
+          <div class="form-group hidden" id="groupAuthName">
+            <label>Full Name</label>
+            <input type="text" id="authName" placeholder="e.g. John Doe">
+          </div>
           <div class="form-group">
             <label>Email Address</label>
             <input type="email" id="authEmail" placeholder="you@example.com" required value="admin@echogpt.app">
@@ -732,8 +694,14 @@
           </div>
 
           <div class="form-actions">
-            <button type="submit" class="btn-primary-large" id="btnSubmitLogin">Sign In</button>
-            <button type="button" class="btn-sub-secondary" id="btnSubmitRegister" onclick="window.EchoApp.handleRegister()">Create New Account</button>
+            <button type="submit" class="btn-primary-large" id="btnSubmitAuth">Sign In</button>
+          </div>
+
+          <div class="auth-switch-footer" id="authSwitchFooter">
+            <span id="authSwitchText">Don't have an account?</span>
+            <button type="button" class="auth-switch-link" id="authSwitchLink" onclick="window.EchoApp.toggleAuthMode()">
+              Create Account
+            </button>
           </div>
         </form>
 

@@ -88,8 +88,44 @@ async function main() {
     }
   }
 
-  console.log('[App] Starting EchoGPT backend on http://localhost:3001/api/v1 ...');
+  // Kill any stale process holding port 3001 before starting
+  const appPortInUse = await isPortInUse(3001);
+  if (appPortInUse) {
+    console.log('[App] Port 3001 is already in use. Freeing it automatically...');
+    try {
+      const { execSync } = require('child_process');
+      if (process.platform === 'win32') {
+        const stdout = execSync('netstat -ano -p tcp', { encoding: 'utf8' });
+        const lines = stdout.split(/\r?\n/);
+        const pids = new Set();
+        for (const line of lines) {
+          if (line.includes(':3001') && line.includes('LISTENING')) {
+            const parts = line.trim().split(/\s+/);
+            const pid = parts[parts.length - 1];
+            if (pid && pid !== '0' && pid !== String(process.pid)) {
+              pids.add(pid);
+            }
+          }
+        }
+        for (const pid of pids) {
+          try {
+            execSync(`taskkill /PID ${pid} /F /T`, { stdio: 'ignore' });
+            console.log(`[App] Freed port 3001 by terminating process PID ${pid}.`);
+          } catch (_) {}
+        }
+      } else {
+        execSync('fuser -k 3001/tcp 2>/dev/null || true');
+      }
+      // Give OS a moment to release the port
+      await new Promise(r => setTimeout(r, 1200));
+    } catch (err) {
+      console.warn('[App] Could not auto-clear port 3001:', err.message);
+    }
+  }
+
   const isWindows = process.platform === 'win32';
+  console.log('[App] Starting EchoGPT backend on http://localhost:3001/api/v1 ...');
+
   const npmCmd = isWindows ? 'npm.cmd' : 'npm';
 
   const app = spawn(npmCmd, ['run', 'start:dev'], {
