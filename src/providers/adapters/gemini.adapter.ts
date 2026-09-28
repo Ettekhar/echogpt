@@ -186,18 +186,35 @@ export class GeminiAdapter implements ProviderAdapter {
   async healthCheck(apiKey: string, baseUrl?: string): Promise<{ healthy: boolean; model?: string; error?: string }> {
     const base = this.resolveBaseUrl(baseUrl);
 
-    // Step 1: Validate the API key with a lightweight models list call
+    // Per Gemini API documentation (https://ai.google.dev/gemini-api/docs/api-key):
+    //   400 INVALID_ARGUMENT / API_KEY_INVALID = invalid or malformed API key
+    //   403 PERMISSION_DENIED                  = missing or empty API key
+    //   503 UNAVAILABLE                        = model overloaded (key may still be valid)
     try {
       const listRes = await fetch(`${base}/models`, {
         headers: { 'x-goog-api-key': apiKey },
       });
 
-      if (listRes.status === 401 || listRes.status === 403) {
-        return { healthy: false, error: `Invalid API key (${listRes.status})` };
+      if (listRes.status === 400) {
+        const body = await listRes.json().catch(() => ({} as any));
+        const reason: string = body?.error?.details?.[0]?.reason ?? body?.error?.status ?? '';
+        if (reason === 'API_KEY_INVALID' || body?.error?.status === 'INVALID_ARGUMENT') {
+          return { healthy: false, error: 'Invalid API key (400 INVALID_ARGUMENT). Check your Gemini API key at https://aistudio.google.com/app/apikey' };
+        }
+        return { healthy: false, error: `Request failed (400): ${body?.error?.message ?? 'Unknown error'}` };
       }
 
-      if (!listRes.ok) {
-        return { healthy: false, error: `Models list failed: ${listRes.status}` };
+      if (listRes.status === 403) {
+        return { healthy: false, error: 'API key missing or permission denied (403 PERMISSION_DENIED).' };
+      }
+
+      if (listRes.status === 401) {
+        return { healthy: false, error: 'Invalid API key (401 Unauthorized).' };
+      }
+
+      if (!listRes.ok && listRes.status !== 503) {
+        const body = await listRes.text();
+        return { healthy: false, error: `Models list failed (${listRes.status}): ${body.slice(0, 200)}` };
       }
     } catch (err: any) {
       return { healthy: false, error: `Network error: ${err.message}` };
@@ -223,8 +240,14 @@ export class GeminiAdapter implements ProviderAdapter {
           if (text) return { healthy: true, model };
         }
 
-        if (res.status === 401 || res.status === 403) {
-          return { healthy: false, error: `Invalid API key (${res.status})` };
+        // Check for invalid key on the generation endpoint too
+        if (res.status === 400 || res.status === 401 || res.status === 403) {
+          const body = await res.json().catch(() => ({} as any));
+          return { healthy: false, error: `API key rejected (${res.status}): ${body?.error?.message ?? 'Invalid API key'}` };
+        }
+
+        if (res.status === 429) {
+          return { healthy: false, error: 'Quota/rate-limit exceeded (429). Key is valid but no remaining credits.' };
         }
 
         if (res.status === 503) continue; // overloaded, try next model
