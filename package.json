@@ -23,8 +23,8 @@
     "seed": "ts-node prisma/seed.ts",
     "generate:openapi": "ts-node -r tsconfig-paths/register scripts/generate-openapi.ts",
     "generate:postman": "npm run generate:openapi && node scripts/convert-to-postman.js",
-    "deploy": "wrangler deploy",
-    "preview": "wrangler dev"
+    "deploy": "npx wrangler deploy",
+    "preview": "npx wrangler dev"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.0",
@@ -74,6 +74,6 @@
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.5.4",
-    "wrangler": "^3.109.2"
+    "wrangler": "^3.114.17"
   }
 }
