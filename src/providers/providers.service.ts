@@ -72,7 +72,7 @@ export class ProvidersService {
 
     // Default models per provider if still empty
     if (!model) {
-      if (dto.name === 'GEMINI') model = 'gemini-2.0-flash';
+      if (dto.name === 'GEMINI') model = 'gemini-2.5-flash';
       else if (dto.name === 'OPENAI') model = 'gpt-4o-mini';
       else if (dto.name === 'CLAUDE') model = 'claude-3-5-sonnet-20241022';
     }

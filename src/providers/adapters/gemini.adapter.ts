@@ -7,18 +7,20 @@ import {
 import { readSseDataLines } from './sse-reader.util';
 
 /**
- * Stable, GA Gemini models in priority order.
- * We cascade through fallbacks when a model returns 503 (overloaded) so the
- * user always gets a real AI response even during demand spikes.
+ * Stable, GA Gemini models in priority order (verified live against the models list).
+ * gemini-2.0-flash and older are DISCONTINUED as of late 2026.
+ * We cascade through fallbacks when a model returns 503 or 404 so the user always
+ * gets a real AI response even during demand spikes or rolling model deprecations.
  */
 const STABLE_GEMINI_MODELS = [
-  'gemini-2.0-flash',
-  'gemini-1.5-flash',
-  'gemini-1.5-pro',
+  'gemini-2.5-flash',
+  'gemini-3.5-flash',
+  'gemini-3.8-flash',
+  'gemini-flash-latest',
 ];
 
 const DEFAULT_GEMINI_MODEL =
-  process.env.GEMINI_DEFAULT_MODEL || 'gemini-2.0-flash';
+  process.env.GEMINI_DEFAULT_MODEL || 'gemini-2.5-flash';
 
 /** Google Gemini adapter using the generateContent REST endpoint. */
 @Injectable()
