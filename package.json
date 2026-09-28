@@ -39,6 +39,7 @@
     "bcrypt": "^5.1.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
+    "embedded-postgres": "^18.4.0-beta.17",
     "helmet": "^7.1.0",
     "nanoid": "^3.3.7",
     "nodemailer": "^10.0.10",
