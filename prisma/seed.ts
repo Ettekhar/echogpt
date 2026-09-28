@@ -67,26 +67,35 @@ async function main() {
     return;
   }
 
-  try {
-    const { encryptSecret } = require('../src/common/utils/crypto.util');
-    const encKey = encryptSecret(rawApiKey);
-    await prisma.aiProvider.deleteMany({ where: { userId: admin.id } });
-    await prisma.aiProvider.create({
-      data: {
-        userId: admin.id,
-        name: 'GEMINI',
-        label: 'Google Gemini (Flash)',
-        model: 'gemini-3.8-flash',
-        encryptedApiKey: encKey,
-        isEnabled: true,
-        isDefault: true,
-        lastHealthCheck: new Date(),
-        lastHealthy: true,
-      },
-    });
-    console.log('Seeded Gemini provider (gemini-3.8-flash) for admin user');
-  } catch (err) {
-    console.log('Note: could not seed Gemini provider:', err.message);
+  // Both seeded accounts get a working provider. The demo account used to have
+  // none, which made "log in as demo and try the chat" fail with a 404
+  // ("No enabled AI provider configured") even though the account was
+  // advertised in the README.
+  for (const [owner, label] of [
+    [admin, 'admin user'],
+    [demo, 'demo user'],
+  ] as const) {
+    try {
+      const { encryptSecret } = require('../src/common/utils/crypto.util');
+      const encKey = encryptSecret(rawApiKey);
+      await prisma.aiProvider.deleteMany({ where: { userId: owner.id } });
+      await prisma.aiProvider.create({
+        data: {
+          userId: owner.id,
+          name: 'GEMINI',
+          label: 'Google Gemini (Flash)',
+          model: 'gemini-3.8-flash',
+          encryptedApiKey: encKey,
+          isEnabled: true,
+          isDefault: true,
+          lastHealthCheck: new Date(),
+          lastHealthy: true,
+        },
+      });
+      console.log(`Seeded Gemini provider (gemini-3.8-flash) for ${label}`);
+    } catch (err) {
+      console.log(`Note: could not seed Gemini provider for ${label}:`, err.message);
+    }
   }
 }
 

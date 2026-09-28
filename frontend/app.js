@@ -328,9 +328,12 @@
     renderUserUI();
     setupEventListeners();
 
-    // Auto login as admin if no user exists so demo is immediately usable
+    // Auto-login so the hosted demo is immediately usable. This signs in as the
+    // seeded *demo* account (USER role), not the admin one: auto-signing every
+    // anonymous visitor in as an administrator published the admin panel, and
+    // the whole user table, to anyone who opened the page.
     if (!state.user) {
-      _initLoginPromise = loginWithCredentials('admin@echogpt.app', 'ChangeMe123!')
+      _initLoginPromise = loginWithCredentials('demo@echogpt.app', 'DemoUser123!')
         .catch(() => {}); // suppress errors
       await _initLoginPromise;
       _initLoginPromise = null;

@@ -34,6 +34,19 @@ Give recruiters the three convenient entry points to test the assignment:
 Create both with `npm run seed`. The seed is idempotent and re-running it resets
 the passwords, so it is the fastest way back to a known-good state.
 
+When `GEMINI_API_KEY` is set, the seed provisions the Gemini provider for **both**
+accounts, so either one can chat immediately. Without that variable the seed skips
+provider setup rather than storing a placeholder key that would fail its health
+check later.
+
+The hosted demo auto-signs visitors in as the **demo** account (`USER` role), so a
+reviewer can chat without credentials. It deliberately does not auto-sign in as
+admin — doing so would publish the admin panel and the user table to anyone who
+opened the page. Sign in as the admin account explicitly to reach it.
+
+> These passwords are committed to this repository. Change `SEED_ADMIN_PASSWORD` /
+> `SEED_DEMO_PASSWORD` before putting any real user data behind this deployment.
+
 ---
 
 ## ⚠️ Pointing the hosted frontend at a backend
