@@ -6,11 +6,26 @@
 (function () {
   'use strict';
 
+  // Resolve the API base URL. See frontend/config.js for the precedence rules.
+  // A previously saved override always wins so a user who pointed the switcher at
+  // their own backend is never silently moved to a different one.
+  function resolveApiBase() {
+    const saved = localStorage.getItem('echogpt_api_base');
+    if (saved) return saved;
+
+    const configured = window.ECHOGPT_CONFIG && window.ECHOGPT_CONFIG.apiBase;
+    if (configured) return configured.replace(/\/+$/, '');
+
+    // Served by the API itself (npm run dev) - no CORS hop needed.
+    if (window.location.port === '3001' || window.location.port === '3000') {
+      return `${window.location.origin}/api/v1`;
+    }
+    return 'http://localhost:3001/api/v1';
+  }
+
   // State
   const state = {
-    apiBase: localStorage.getItem('echogpt_api_base') || (
-      window.location.origin.includes(':3001') ? `${window.location.origin}/api/v1` : 'http://localhost:3001/api/v1'
-    ),
+    apiBase: resolveApiBase(),
     token: localStorage.getItem('echogpt_token') || null,
     user: JSON.parse(localStorage.getItem('echogpt_user') || 'null'),
     currentProvider: 'OPENAI',
@@ -34,17 +49,46 @@
       headers['Authorization'] = `Bearer ${state.token}`;
     }
 
+    let res;
     try {
-      const res = await fetch(url, { ...options, headers });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || data.error || `HTTP error ${res.status}`);
-      }
-      return data;
+      res = await fetch(url, { ...options, headers });
     } catch (err) {
-      console.warn(`[API] Error on ${endpoint}:`, err);
+      // fetch only rejects on a transport failure (backend down, DNS failure,
+      // blocked mixed content). Surface the likely cause instead of a bare
+      // "Failed to fetch", which is what made this impossible to debug before.
+      const isLocalTarget = /localhost|127\.0\.0\.1/.test(state.apiBase);
+      const hint = isLocalTarget
+        ? `The API at ${state.apiBase} is unreachable. If you are viewing this page from a deployed site, localhost refers to the visitor's own machine — point the API Base URL at a publicly reachable backend instead.`
+        : `Could not reach the API at ${state.apiBase}. Check that the backend is running and that it allows cross-origin requests from this page.`;
+      console.warn(`[API] Network failure on ${endpoint}:`, err);
+      const wrapped = new Error(hint);
+      wrapped.isNetworkError = true;
+      throw wrapped;
+    }
+
+    // Not every response is JSON (proxies, error pages, empty bodies).
+    const text = await res.text();
+    let data = null;
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch {
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status} from ${url}: ${text.slice(0, 200)}`);
+        }
+        return data;
+      }
+    }
+
+    if (!res.ok) {
+      const message =
+        (data && (data.message || data.error)) || `HTTP error ${res.status}`;
+      const err = new Error(message);
+      err.status = res.status;
+      err.data = data;
       throw err;
     }
+    return data;
   }
 
   // =========================================================================
@@ -283,15 +327,21 @@
   }
 
   async function checkHealth() {
+    // Use the PUBLIC /health endpoint. The previous call to /admin/system-health
+    // is ADMIN-gated, so it returned 401 for every signed-out or non-admin
+    // visitor and the UI incorrectly reported "API Offline" against a perfectly
+    // healthy backend.
     try {
-      const res = await apiRequest('/admin/system-health');
+      const res = await apiRequest('/health');
       if (res && res.data && res.data.status === 'ok') {
         el.apiStatusLabel.textContent = 'API Connected';
         el.apiStatusPill.querySelector('.status-dot').className = 'status-dot';
+        el.apiStatusPill.title = `Connected to ${state.apiBase}`;
       }
     } catch (_) {
       el.apiStatusLabel.textContent = 'API Offline';
       el.apiStatusPill.querySelector('.status-dot').className = 'status-dot disconnected';
+      el.apiStatusPill.title = `Could not reach ${state.apiBase}`;
     }
   }
 

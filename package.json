@@ -23,6 +23,10 @@
     "seed": "ts-node prisma/seed.ts",
     "generate:openapi": "ts-node -r tsconfig-paths/register scripts/generate-openapi.ts",
     "generate:postman": "npm run generate:openapi && node scripts/convert-to-postman.js",
+    "verify:e2e": "node scripts/e2e-verify.js",
+    "verify:admin": "node scripts/verify-admin.js",
+    "verify:migration": "node scripts/verify-migration.js",
+    "probe:gemini": "node scripts/probe-gemini-models.js",
     "deploy": "npx wrangler deploy",
     "preview": "npx wrangler dev"
   },

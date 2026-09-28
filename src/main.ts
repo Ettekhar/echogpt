@@ -20,7 +20,20 @@ async function bootstrap() {
       crossOriginEmbedderPolicy: false,
     }),
   );
-  app.enableCors();
+  // CORS: permissive by default so the hosted demo frontend can call the API
+  // from any origin, but lock it down in production with CORS_ORIGIN
+  // (comma-separated list, or "*" for any origin).
+  const corsOrigin = (process.env.CORS_ORIGIN || '*').trim();
+  app.enableCors({
+    origin:
+      corsOrigin === '*'
+        ? true
+        : corsOrigin
+            .split(',')
+            .map((o) => o.trim())
+            .filter(Boolean),
+    credentials: true,
+  });
 
   app.useStaticAssets(join(__dirname, '..', 'frontend'));
 
@@ -58,7 +71,8 @@ async function bootstrap() {
   });
 
   const port = process.env.PORT || 3000;
-  await app.listen(port);
+  // Bind to all interfaces so a container/VM can expose the API, not just loopback.
+  await app.listen(port, '0.0.0.0');
   // eslint-disable-next-line no-console
   console.log(`EchoGPT backend running on http://localhost:${port}/${apiPrefix}`);
   // eslint-disable-next-line no-console

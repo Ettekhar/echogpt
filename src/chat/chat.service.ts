@@ -1,4 +1,11 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProvidersService } from '../providers/providers.service';
 import { ProviderAdapterFactory } from '../providers/adapters/provider-adapter.factory';
@@ -161,10 +168,14 @@ export class ChatService {
         yield { event: 'chunk', data: { text: chunk } };
       }
     } catch (err: any) {
-      this.logger.error(`AI Stream Provider ${provider.name} (${provider.model}) failed: ${err.message}`);
+      this.logger.error(
+        `AI Stream Provider ${provider.name} (${provider.model}) failed: ${err.message}`,
+      );
       yield {
         event: 'error',
-        data: { message: `AI provider "${provider.name}" is currently unavailable: ${err.message}` },
+        data: {
+          message: `AI provider "${provider.name}" is currently unavailable: ${err.message}`,
+        },
       };
       return;
     }

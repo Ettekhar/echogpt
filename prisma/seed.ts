@@ -5,13 +5,16 @@ const prisma = new PrismaClient();
 
 async function main() {
   const adminEmail = 'admin@echogpt.app';
-  const passwordHash = await bcrypt.hash('ChangeMe123!', 10);
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'ChangeMe123!';
+  const passwordHash = await bcrypt.hash(adminPassword, 10);
 
   const admin = await prisma.user.upsert({
     where: { email: adminEmail },
     update: {
       role: Role.ADMIN,
       isEmailVerified: true,
+      isActive: true,
+      deletedAt: null,
       passwordHash,
     },
     create: {
@@ -26,11 +29,46 @@ async function main() {
     },
   });
 
-  console.log('Seeded admin user:', admin.email, '(password: ChangeMe123!)');
+  console.log(`Seeded admin user: ${admin.email} (password: ${adminPassword})`);
+
+  // The README advertises a second demo account for reviewers; keep it in sync.
+  const demoEmail = 'demo@echogpt.app';
+  const demoPassword = process.env.SEED_DEMO_PASSWORD || 'DemoUser123!';
+  const demoHash = await bcrypt.hash(demoPassword, 10);
+  const demo = await prisma.user.upsert({
+    where: { email: demoEmail },
+    update: {
+      isEmailVerified: true,
+      isActive: true,
+      deletedAt: null,
+      passwordHash: demoHash,
+    },
+    create: {
+      email: demoEmail,
+      passwordHash: demoHash,
+      name: 'EchoGPT Demo',
+      role: Role.USER,
+      isEmailVerified: true,
+      subscription: {
+        create: { plan: PlanType.FREE, dailyLimit: 20 },
+      },
+    },
+  });
+  console.log(`Seeded demo user:  ${demo.email} (password: ${demoPassword})`);
+
+  // Provider seeding is opt-in: only seed a real key when one is actually
+  // provided. Storing a placeholder key only produces confusing failed health
+  // checks later.
+  const rawApiKey = process.env.GEMINI_API_KEY;
+  if (!rawApiKey) {
+    console.log(
+      'Skipping provider seed: set GEMINI_API_KEY in .env to pre-load a Gemini provider.',
+    );
+    return;
+  }
 
   try {
     const { encryptSecret } = require('../src/common/utils/crypto.util');
-    const rawApiKey = process.env.GEMINI_API_KEY || 'AIzaSyDemoKeyReplaceInDashboard';
     const encKey = encryptSecret(rawApiKey);
     await prisma.aiProvider.deleteMany({ where: { userId: admin.id } });
     await prisma.aiProvider.create({
@@ -38,7 +76,7 @@ async function main() {
         userId: admin.id,
         name: 'GEMINI',
         label: 'Google Gemini (Flash)',
-        model: 'gemini-flash-latest',
+        model: 'gemini-3.8-flash',
         encryptedApiKey: encKey,
         isEnabled: true,
         isDefault: true,
@@ -46,7 +84,7 @@ async function main() {
         lastHealthy: true,
       },
     });
-    console.log('Seeded Gemini provider for admin user');
+    console.log('Seeded Gemini provider (gemini-3.8-flash) for admin user');
   } catch (err) {
     console.log('Note: could not seed Gemini provider:', err.message);
   }

@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -30,6 +41,17 @@ export class ProvidersController {
   @ApiResponse({ status: 200, description: 'Array of provider configs (keys never exposed)' })
   findAll(@CurrentUser('id') userId: string) {
     return this.providersService.findAll(userId);
+  }
+
+  // NOTE: this static route MUST stay above `@Get(':id')`. NestJS matches routes in
+  // declaration order, so declaring `:id` first would swallow `/providers/default`
+  // (id="default") and always answer 404.
+  @Get('default')
+  @ApiOperation({ summary: 'Get the default AI provider configuration' })
+  @ApiResponse({ status: 200, description: 'Default provider found' })
+  @ApiResponse({ status: 404, description: 'No default provider configured' })
+  getDefault(@CurrentUser('id') userId: string) {
+    return this.providersService.getDefault(userId);
   }
 
   @Get(':id')
@@ -76,14 +98,6 @@ export class ProvidersController {
     return this.providersService.setEnabled(userId, id, false);
   }
 
-  @Get('default')
-  @ApiOperation({ summary: 'Get the default AI provider configuration' })
-  @ApiResponse({ status: 200, description: 'Default provider found' })
-  @ApiResponse({ status: 404, description: 'No default provider configured' })
-  getDefault(@CurrentUser('id') userId: string) {
-    return this.providersService.getDefault(userId);
-  }
-
   @Patch(':id/default')
   @ApiOperation({ summary: 'Set provider as default' })
   @ApiResponse({ status: 200, description: 'Provider set as default' })
@@ -100,6 +114,7 @@ export class ProvidersController {
   }
 
   @Post(':id/health-check')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Ping the provider's API to confirm the stored key is valid" })
   @ApiResponse({ status: 200, description: '{ healthy: boolean, checkedAt: Date }' })
   @ApiResponse({ status: 404, description: 'Provider not found or not owned by this user' })
@@ -108,13 +123,14 @@ export class ProvidersController {
   }
 
   @Get(':id/health')
-  @ApiOperation({ summary: "Check provider health (GET alias)" })
+  @ApiOperation({ summary: 'Check provider health (GET alias)' })
   healthCheckGet(@CurrentUser('id') userId: string, @Param('id') id: string) {
     return this.providersService.healthCheck(userId, id);
   }
 
   @Post(':id/health')
-  @ApiOperation({ summary: "Check provider health (POST alias)" })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Check provider health (POST alias)' })
   healthCheckPost(@CurrentUser('id') userId: string, @Param('id') id: string) {
     return this.providersService.healthCheck(userId, id);
   }

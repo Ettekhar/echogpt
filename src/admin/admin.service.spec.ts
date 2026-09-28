@@ -60,9 +60,7 @@ describe('AdminService', () => {
   describe('getUserSubscription', () => {
     it('throws NotFoundException when the user has no subscription', async () => {
       prisma.subscription.findUnique.mockResolvedValue(null);
-      await expect(service.getUserSubscription('missing-user')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.getUserSubscription('missing-user')).rejects.toThrow(NotFoundException);
     });
 
     it('returns the subscription when found', async () => {

@@ -31,8 +31,8 @@ export class SearchService {
         query,
         answer: c.answer || c.summary || 'Cached search complete.',
         summary: c.answer || c.summary || 'Cached search complete.',
-        results: Array.isArray(c.results) ? c.results : (c.items || []),
-        items: Array.isArray(c.results) ? c.results : (c.items || []),
+        results: Array.isArray(c.results) ? c.results : c.items || [],
+        items: Array.isArray(c.results) ? c.results : c.items || [],
         cached: true,
       };
     }
@@ -78,9 +78,10 @@ export class SearchService {
     }
 
     if (!answer) {
-      answer = items.length > 0
-        ? `Found ${items.length} relevant web sources for "${query}".`
-        : `No web results found for "${query}".`;
+      answer =
+        items.length > 0
+          ? `Found ${items.length} relevant web sources for "${query}".`
+          : `No web results found for "${query}".`;
     }
 
     const responsePayload = {

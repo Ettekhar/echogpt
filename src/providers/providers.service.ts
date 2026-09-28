@@ -58,14 +58,29 @@ export class ProvidersService {
     return this.toSafeDto(provider, dto.apiKey);
   }
 
-  private sanitizeProviderInput(dto: { name: string; label?: string; model?: string; baseUrl?: string }) {
-    let model = dto.model?.trim()?.replace(/^models\//i, '')?.replace(/\s+/g, '-');
+  private sanitizeProviderInput(dto: {
+    name: string;
+    label?: string;
+    model?: string;
+    baseUrl?: string;
+  }) {
+    let model = dto.model
+      ?.trim()
+      ?.replace(/^models\//i, '')
+      ?.replace(/\s+/g, '-');
     let label = dto.label?.trim();
 
     // If model is empty, but label looks like a model name, use label as model
     if (!model && label) {
-      const cleanLabel = label.toLowerCase().replace(/^models\//i, '').replace(/\s+/g, '-');
-      if (cleanLabel.startsWith('gemini') || cleanLabel.startsWith('gpt') || cleanLabel.startsWith('claude')) {
+      const cleanLabel = label
+        .toLowerCase()
+        .replace(/^models\//i, '')
+        .replace(/\s+/g, '-');
+      if (
+        cleanLabel.startsWith('gemini') ||
+        cleanLabel.startsWith('gpt') ||
+        cleanLabel.startsWith('claude')
+      ) {
         model = cleanLabel;
       }
     }
@@ -147,7 +162,10 @@ export class ProvidersService {
     const provider = await this.getOwnedOrThrow(userId, id);
     const adapter = this.adapterFactory.get(provider.name as any);
     const apiKey = decryptSecret(provider.encryptedApiKey);
-    const result: HealthCheckResult = await adapter.healthCheck(apiKey, provider.baseUrl || undefined);
+    const result: HealthCheckResult = await adapter.healthCheck(
+      apiKey,
+      provider.baseUrl || undefined,
+    );
 
     const updated = await this.prisma.aiProvider.update({
       where: { id },

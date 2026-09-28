@@ -87,7 +87,10 @@ export class OpenAiAdapter implements ProviderAdapter {
     }
   }
 
-  async healthCheck(apiKey: string, baseUrl?: string): Promise<{ healthy: boolean; model?: string; error?: string }> {
+  async healthCheck(
+    apiKey: string,
+    baseUrl?: string,
+  ): Promise<{ healthy: boolean; model?: string; error?: string }> {
     const base = (baseUrl || 'https://api.openai.com/v1').replace(/\/+$/, '');
 
     // Step 1: Validate key via models list (lightweight)
@@ -132,10 +135,16 @@ export class OpenAiAdapter implements ProviderAdapter {
         return { healthy: false, error: 'Invalid API key (401)' };
       }
       if (genRes.status === 429) {
-        return { healthy: false, error: 'Quota/rate-limit exceeded (429). Key is valid but no credits.' };
+        return {
+          healthy: false,
+          error: 'Quota/rate-limit exceeded (429). Key is valid but no credits.',
+        };
       }
       const body = await genRes.text();
-      return { healthy: false, error: `Generation test failed (${genRes.status}): ${body.slice(0, 200)}` };
+      return {
+        healthy: false,
+        error: `Generation test failed (${genRes.status}): ${body.slice(0, 200)}`,
+      };
     } catch (err: any) {
       return { healthy: false, error: `Generation test network error: ${err.message}` };
     }

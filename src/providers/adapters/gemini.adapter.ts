@@ -7,20 +7,32 @@ import {
 import { readSseDataLines } from './sse-reader.util';
 
 /**
- * Stable, GA Gemini models in priority order (verified live against the models list).
- * gemini-2.0-flash and older are DISCONTINUED as of late 2026.
- * We cascade through fallbacks when a model returns 503 or 404 so the user always
- * gets a real AI response even during demand spikes or rolling model deprecations.
+ * Gemini models in priority order.
+ *
+ * Verified live against the `listModels` + `generateContent` endpoints on
+ * 2026-09-28. Order matters: the first model that answers wins, so the most
+ * reliable models come first and we never waste a round-trip on a dead one.
+ *
+ *   gemini-2.5-flash / gemini-2.5-flash-lite
+ *       -> 404 "no longer available to new users" (retired)
+ *   gemini-3.5-flash
+ *       -> live, but free-tier quota is enforced per model and can be exhausted (429)
+ *   gemini-flash-latest
+ *       -> live, but frequently 503 under load
+ *
+ * The cascade therefore degrades gracefully: quota/overload on one model no
+ * longer kills the request, it just moves to the next one.
  */
 const STABLE_GEMINI_MODELS = [
-  'gemini-2.5-flash',
-  'gemini-3.5-flash',
   'gemini-3.8-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-3.1-flash-lite',
+  'gemini-flash-lite-latest',
   'gemini-flash-latest',
+  'gemini-3.5-flash',
 ];
 
-const DEFAULT_GEMINI_MODEL =
-  process.env.GEMINI_DEFAULT_MODEL || 'gemini-2.5-flash';
+const DEFAULT_GEMINI_MODEL = process.env.GEMINI_DEFAULT_MODEL || 'gemini-3.8-flash';
 
 /** Google Gemini adapter using the generateContent REST endpoint. */
 @Injectable()
@@ -33,24 +45,22 @@ export class GeminiAdapter implements ProviderAdapter {
     const contents = this.toGeminiContents(request);
 
     // Build cascade: primary model first, then stable fallbacks (excluding primary if it's already in the list)
-    const modelCascade = [
-      primaryModel,
-      ...STABLE_GEMINI_MODELS.filter((m) => m !== primaryModel),
-    ];
+    const modelCascade = [primaryModel, ...STABLE_GEMINI_MODELS.filter((m) => m !== primaryModel)];
 
     let lastError: Error | undefined;
 
     for (const model of modelCascade) {
       try {
-        const res = await this.fetchWithRetry(() =>
-          fetch(`${baseUrl}/models/${model}:generateContent`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-goog-api-key': request.apiKey,
-            },
-            body: JSON.stringify({ contents }),
-          }),
+        const res = await this.fetchWithRetry(
+          () =>
+            fetch(`${baseUrl}/models/${model}:generateContent`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': request.apiKey,
+              },
+              body: JSON.stringify({ contents }),
+            }),
           model,
         );
 
@@ -61,7 +71,12 @@ export class GeminiAdapter implements ProviderAdapter {
 
         if (res.status === 429) {
           const body = await res.text();
-          throw new Error(`Gemini rate limit exceeded (429): ${body}`);
+          // Gemini free-tier rate limits are enforced PER MODEL, so a 429 on the
+          // primary model does not mean the key is dead — another model in the
+          // cascade usually still has quota. Fall through to the next model.
+          this.logger.warn(`Gemini model "${model}" rate limited (429), trying next model...`);
+          lastError = new Error(`Gemini rate limit exceeded (429) on model "${model}": ${body}`);
+          continue;
         }
 
         if (res.status === 503) {
@@ -86,7 +101,9 @@ export class GeminiAdapter implements ProviderAdapter {
         }
 
         if (model !== primaryModel) {
-          this.logger.log(`Gemini chat succeeded using fallback model "${model}" (primary "${primaryModel}" was unavailable).`);
+          this.logger.log(
+            `Gemini chat succeeded using fallback model "${model}" (primary "${primaryModel}" was unavailable).`,
+          );
         }
 
         return {
@@ -95,13 +112,17 @@ export class GeminiAdapter implements ProviderAdapter {
         };
       } catch (err: any) {
         // Re-throw immediately for auth/rate-limit/content-policy errors — no point retrying with another model
-        if (err.message?.includes('authentication failed') ||
-            err.message?.includes('rate limit') ||
-            err.message?.includes('blocked the prompt')) {
+        if (
+          err.message?.includes('authentication failed') ||
+          err.message?.includes('rate limit') ||
+          err.message?.includes('blocked the prompt')
+        ) {
           throw err;
         }
         lastError = err;
-        this.logger.warn(`Gemini model "${model}" failed: ${err.message}. Trying next model in cascade...`);
+        this.logger.warn(
+          `Gemini model "${model}" failed: ${err.message}. Trying next model in cascade...`,
+        );
       }
     }
 
@@ -113,24 +134,22 @@ export class GeminiAdapter implements ProviderAdapter {
     const primaryModel = this.resolveModel(request.model);
     const contents = this.toGeminiContents(request);
 
-    const modelCascade = [
-      primaryModel,
-      ...STABLE_GEMINI_MODELS.filter((m) => m !== primaryModel),
-    ];
+    const modelCascade = [primaryModel, ...STABLE_GEMINI_MODELS.filter((m) => m !== primaryModel)];
 
     let lastError: Error | undefined;
 
     for (const model of modelCascade) {
       try {
-        const res = await this.fetchWithRetry(() =>
-          fetch(`${baseUrl}/models/${model}:streamGenerateContent?alt=sse`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-goog-api-key': request.apiKey,
-            },
-            body: JSON.stringify({ contents }),
-          }),
+        const res = await this.fetchWithRetry(
+          () =>
+            fetch(`${baseUrl}/models/${model}:streamGenerateContent?alt=sse`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': request.apiKey,
+              },
+              body: JSON.stringify({ contents }),
+            }),
           model,
         );
 
@@ -141,7 +160,12 @@ export class GeminiAdapter implements ProviderAdapter {
 
         if (res.status === 429) {
           const body = await res.text();
-          throw new Error(`Gemini rate limit exceeded (429): ${body}`);
+          // Gemini free-tier rate limits are enforced PER MODEL, so a 429 on the
+          // primary model does not mean the key is dead — another model in the
+          // cascade usually still has quota. Fall through to the next model.
+          this.logger.warn(`Gemini model "${model}" rate limited (429), trying next model...`);
+          lastError = new Error(`Gemini rate limit exceeded (429) on model "${model}": ${body}`);
+          continue;
         }
 
         if (res.status === 503) {
@@ -172,9 +196,11 @@ export class GeminiAdapter implements ProviderAdapter {
         }
         return; // successfully streamed
       } catch (err: any) {
-        if (err.message?.includes('authentication failed') ||
-            err.message?.includes('rate limit') ||
-            err.message?.includes('blocked the prompt')) {
+        if (
+          err.message?.includes('authentication failed') ||
+          err.message?.includes('rate limit') ||
+          err.message?.includes('blocked the prompt')
+        ) {
           throw err;
         }
         lastError = err;
@@ -185,7 +211,10 @@ export class GeminiAdapter implements ProviderAdapter {
     throw lastError ?? new Error('All Gemini stream models unavailable');
   }
 
-  async healthCheck(apiKey: string, baseUrl?: string): Promise<{ healthy: boolean; model?: string; error?: string }> {
+  async healthCheck(
+    apiKey: string,
+    baseUrl?: string,
+  ): Promise<{ healthy: boolean; model?: string; error?: string }> {
     const base = this.resolveBaseUrl(baseUrl);
 
     // Per Gemini API documentation (https://ai.google.dev/gemini-api/docs/api-key):
@@ -198,16 +227,26 @@ export class GeminiAdapter implements ProviderAdapter {
       });
 
       if (listRes.status === 400) {
-        const body = await listRes.json().catch(() => ({} as any));
+        const body = await listRes.json().catch(() => ({}) as any);
         const reason: string = body?.error?.details?.[0]?.reason ?? body?.error?.status ?? '';
         if (reason === 'API_KEY_INVALID' || body?.error?.status === 'INVALID_ARGUMENT') {
-          return { healthy: false, error: 'Invalid API key (400 INVALID_ARGUMENT). Check your Gemini API key at https://aistudio.google.com/app/apikey' };
+          return {
+            healthy: false,
+            error:
+              'Invalid API key (400 INVALID_ARGUMENT). Check your Gemini API key at https://aistudio.google.com/app/apikey',
+          };
         }
-        return { healthy: false, error: `Request failed (400): ${body?.error?.message ?? 'Unknown error'}` };
+        return {
+          healthy: false,
+          error: `Request failed (400): ${body?.error?.message ?? 'Unknown error'}`,
+        };
       }
 
       if (listRes.status === 403) {
-        return { healthy: false, error: 'API key missing or permission denied (403 PERMISSION_DENIED).' };
+        return {
+          healthy: false,
+          error: 'API key missing or permission denied (403 PERMISSION_DENIED).',
+        };
       }
 
       if (listRes.status === 401) {
@@ -216,13 +255,17 @@ export class GeminiAdapter implements ProviderAdapter {
 
       if (!listRes.ok && listRes.status !== 503) {
         const body = await listRes.text();
-        return { healthy: false, error: `Models list failed (${listRes.status}): ${body.slice(0, 200)}` };
+        return {
+          healthy: false,
+          error: `Models list failed (${listRes.status}): ${body.slice(0, 200)}`,
+        };
       }
     } catch (err: any) {
       return { healthy: false, error: `Network error: ${err.message}` };
     }
 
     // Step 2: Try a real minimal generation with the most stable model
+    let lastHealthError: string | undefined;
     for (const model of STABLE_GEMINI_MODELS) {
       try {
         const res = await fetch(`${base}/models/${model}:generateContent`, {
@@ -244,12 +287,21 @@ export class GeminiAdapter implements ProviderAdapter {
 
         // Check for invalid key on the generation endpoint too
         if (res.status === 400 || res.status === 401 || res.status === 403) {
-          const body = await res.json().catch(() => ({} as any));
-          return { healthy: false, error: `API key rejected (${res.status}): ${body?.error?.message ?? 'Invalid API key'}` };
+          const body = await res.json().catch(() => ({}) as any);
+          return {
+            healthy: false,
+            error: `API key rejected (${res.status}): ${body?.error?.message ?? 'Invalid API key'}`,
+          };
         }
 
         if (res.status === 429) {
-          return { healthy: false, error: 'Quota/rate-limit exceeded (429). Key is valid but no remaining credits.' };
+          // Per-model quota: keep probing the remaining cascade members rather
+          // than reporting the whole key as unusable.
+          this.logger.warn(
+            `Gemini health check: model "${model}" rate limited (429), trying next model...`,
+          );
+          lastHealthError = `Rate limit exceeded (429) on model "${model}". Key is valid; this model's quota is spent.`;
+          continue;
         }
 
         if (res.status === 503) continue; // overloaded, try next model
@@ -258,7 +310,12 @@ export class GeminiAdapter implements ProviderAdapter {
       }
     }
 
-    return { healthy: false, error: 'All stable Gemini models are currently unavailable (503). API key may be valid but quota exceeded.' };
+    return {
+      healthy: false,
+      error:
+        lastHealthError ??
+        'All stable Gemini models are currently unavailable (503). API key may be valid but quota exceeded.',
+    };
   }
 
   private resolveBaseUrl(baseUrl?: string): string {
@@ -289,10 +346,7 @@ export class GeminiAdapter implements ProviderAdapter {
   /**
    * Single 503 retry with 800ms delay + 404-on-flaky-backing-build retry.
    */
-  private async fetchWithRetry(
-    doFetch: () => Promise<Response>,
-    model: string,
-  ): Promise<Response> {
+  private async fetchWithRetry(doFetch: () => Promise<Response>, model: string): Promise<Response> {
     let res = await doFetch();
 
     // One immediate retry on 503
@@ -306,7 +360,9 @@ export class GeminiAdapter implements ProviderAdapter {
     if (res.status === 404) {
       const bodyText = await res.clone().text();
       if (/Model not found: models\//i.test(bodyText)) {
-        this.logger.warn(`Gemini model "${model}" 404'd on internal backing build, retrying: ${bodyText}`);
+        this.logger.warn(
+          `Gemini model "${model}" 404'd on internal backing build, retrying: ${bodyText}`,
+        );
         res = await doFetch();
       }
     }

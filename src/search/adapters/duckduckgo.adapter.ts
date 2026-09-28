@@ -28,7 +28,8 @@ export class DuckDuckGoSearchAdapter implements SearchProviderAdapter {
       const results: SearchResultItem[] = [];
 
       // Extract titles and URLs
-      const titleRegex = /<h2 class="result__title">[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g;
+      const titleRegex =
+        /<h2 class="result__title">[\s\S]*?<a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g;
       let m: RegExpExecArray | null;
 
       while ((m = titleRegex.exec(html)) !== null && results.length < 8) {

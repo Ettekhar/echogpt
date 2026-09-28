@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsString, IsUUID, MinLength } from 'class-validator';
+import { IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class SendMessageDto {
   @ApiProperty({ required: false, example: 'Summarize this page for me' })
