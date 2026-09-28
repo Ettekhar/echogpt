@@ -4,6 +4,7 @@ package-lock.json
 
 # Builds
 dist/
+dist-seed/
 
 # Environment and Secrets
 .env

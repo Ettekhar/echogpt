@@ -1,0 +1,70 @@
+# Render blueprint - gives the API a permanent hostname instead of the
+# per-restart hostname a Cloudflare quick tunnel hands out.
+#
+# Setup: push this repo to GitHub, then in Render choose "New > Blueprint"
+# and point it at the repository. Render reads this file and creates both
+# the Postgres instance and the web service wired together.
+#
+# Secrets: fill in the `sync: false` values at deploy time, or set them in
+# the service's Environment tab. Never commit real values here.
+
+databases:
+  - name: echogpt-db
+    databaseName: echogpt
+    user: echogpt
+    # Render free Postgres instances expire after 30 days. Use a paid instance
+    # (or move to Neon/Supabase) if the demo has to stay up longer.
+    plan: free
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: echogpt-api
+    runtime: node
+    plan: free
+    region: oregon
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /api/v1/health
+    # `build:seed` is a build-time step: the seed is TypeScript and ts-node is a
+    # devDependency, so it has to be compiled here rather than run at boot.
+    buildCommand: npm ci && npx prisma generate && npm run build && npm run build:seed
+    # Migrations then seed on every deploy, so the two demo accounts and their
+    # Gemini provider always exist against a fresh or migrated database.
+    startCommand: npm run prisma:deploy && node dist-seed/prisma/seed.js && node dist/main
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: echogpt-db
+          property: connectionString
+      - key: API_PREFIX
+        value: api/v1
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      # Must be exactly 32 bytes of hex (64 characters). Set your own; a
+      # placeholder here would silently break decryption of stored provider keys.
+      - key: PROVIDER_KEY_ENCRYPTION_SECRET
+        sync: false
+      - key: CORS_ORIGIN
+        # Comma-separated allowlist, e.g. https://echogpt.taion16240.workers.dev
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_DEFAULT_MODEL
+        value: gemini-3.8-flash
+      - key: SEED_ADMIN_PASSWORD
+        sync: false
+      - key: SEED_DEMO_PASSWORD
+        sync: false
+      - key: FREE_PLAN_DAILY_LIMIT
+        value: "20"
+      - key: PREMIUM_PLAN_DAILY_LIMIT
+        value: "1000"

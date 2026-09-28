@@ -95,10 +95,47 @@ Gemini completion, and the admin dashboard all work from
 
 > **A quick tunnel's hostname is assigned per-process and changes on every
 > restart.** That is fine for a demo you drive yourself, but it is not something
-> to hand a reviewer. For a stable URL, create a *named* tunnel
-> (`cloudflared tunnel create echogpt-api`) and attach it to a hostname in a
-> zone in your Cloudflare account, or deploy the API to a host that provides a
-> fixed URL (Render, Railway, Fly.io).
+> to hand a reviewer: `frontend/config.js` has to be edited and redeployed after
+> every restart, and long requests have been observed dying with
+> `context canceled`. Use the fixed-host deploy below instead.
+
+### Deploying the API to a fixed host (Render)
+
+[`render.yaml`](render.yaml) is a Render blueprint. Push the repo to GitHub,
+then in Render choose **New → Blueprint** and point it at the repository. Render
+creates the Postgres instance and the web service already wired together.
+
+Fill in the three `sync: false` values when prompted — Render shows them as
+required:
+
+| Variable | Value |
+| --- | --- |
+| `PROVIDER_KEY_ENCRYPTION_SECRET` | 64 hex characters, e.g. `openssl rand -hex 32` |
+| `CORS_ORIGIN` | Your frontend origin, e.g. `https://echogpt.taion16240.workers.dev` |
+| `GEMINI_API_KEY` | From https://aistudio.google.com/app/apikey |
+
+`JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` are generated for you.
+
+Then point the frontend at the service URL and redeploy:
+
+```js
+// frontend/config.js
+apiBase: 'https://echogpt-api.onrender.com/api/v1'
+```
+
+```bash
+npx wrangler deploy
+```
+
+The blueprint's start command runs `prisma migrate deploy` and then the seed, so
+the two demo accounts and their Gemini provider exist on a fresh database without
+any manual step.
+
+> Render's **free** Postgres instances expire after 30 days. For a demo that has
+> to stay up, use a paid instance or an external database (Neon, Supabase).
+
+The same three-step flow works on Railway or Fly.io; only the build/start
+commands differ, and both are in [`Dockerfile`](Dockerfile) / `docker-compose.yml`.
 
 ---
 

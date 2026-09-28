@@ -1,5 +1,6 @@
 import { PrismaClient, Role, PlanType } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { encryptSecret } from '../src/common/utils/crypto.util';
 
 const prisma = new PrismaClient();
 
@@ -76,7 +77,6 @@ async function main() {
     [demo, 'demo user'],
   ] as const) {
     try {
-      const { encryptSecret } = require('../src/common/utils/crypto.util');
       const encKey = encryptSecret(rawApiKey);
       await prisma.aiProvider.deleteMany({ where: { userId: owner.id } });
       await prisma.aiProvider.create({
