@@ -14,10 +14,16 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   }
 
   async validate(payload: { sub: string; email: string; role: string }) {
-    const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.sub },
+      include: { role: true },
+    });
     if (!user || !user.isActive || user.deletedAt) {
       return null;
     }
-    return { id: user.id, email: user.email, role: user.role };
+    // Flattened to the role *name*: RolesGuard compares against the Role enum
+    // values, and downstream code has always treated request.user.role as a
+    // string.
+    return { id: user.id, email: user.email, role: user.role.name };
   }
 }

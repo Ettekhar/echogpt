@@ -11,6 +11,7 @@ import { ProvidersModule } from './providers/providers.module';
 import { ChatModule } from './chat/chat.module';
 import { SearchModule } from './search/search.module';
 import { AdminModule } from './admin/admin.module';
+import { RolesModule } from './roles/roles.module';
 import { UsageLoggingInterceptor } from './common/interceptors/usage-logging.interceptor';
 import { AppController } from './app.controller';
 
@@ -25,6 +26,7 @@ import { AppController } from './app.controller';
     ]),
     PrismaModule,
     MailModule,
+    RolesModule,
     AuthModule,
     UsersModule,
     SubscriptionsModule,

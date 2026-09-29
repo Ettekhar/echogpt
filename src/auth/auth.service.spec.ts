@@ -4,6 +4,7 @@ import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
+import { RolesService } from '../roles/roles.service';
 
 // bcrypt.hash/compare are slow by design; keep tests fast without weakening AuthService itself.
 jest.mock('bcrypt', () => ({
@@ -15,10 +16,12 @@ describe('AuthService', () => {
   let service: AuthService;
   let prisma: {
     user: any;
+    role: any;
     session: any;
   };
   let jwt: Partial<JwtService>;
   let mail: Partial<MailService>;
+  let roles: RolesService;
 
   beforeEach(() => {
     process.env.JWT_ACCESS_SECRET = 'access-secret';
@@ -30,6 +33,12 @@ describe('AuthService', () => {
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+      },
+      role: {
+        upsert: jest.fn(async ({ where }: any) => ({
+          id: `role-${where.name}`,
+          name: where.name,
+        })),
       },
       session: {
         create: jest.fn(),
@@ -47,10 +56,15 @@ describe('AuthService', () => {
       sendVerificationEmail: jest.fn(async () => undefined),
     };
 
+    // A real RolesService backed by the Prisma mock, so the test exercises the
+    // actual name -> id resolution rather than a stubbed stand-in.
+    roles = new RolesService(prisma as unknown as PrismaService);
+
     service = new AuthService(
       prisma as unknown as PrismaService,
       jwt as JwtService,
       mail as MailService,
+      roles,
     );
   });
 
@@ -70,13 +84,13 @@ describe('AuthService', () => {
           id: 'user-1',
           email: 'new@example.com',
           name: null,
-          role: 'USER',
+          role: { name: 'USER' },
         }); // issueTokens lookup
 
       prisma.user.create.mockResolvedValue({
         id: 'user-1',
         email: 'new@example.com',
-        role: 'USER',
+        role: { name: 'USER' },
       });
 
       const result = await service.register({
@@ -141,9 +155,14 @@ describe('AuthService', () => {
           deletedAt: null,
           passwordHash: 'hashed',
           email: 'user@example.com',
-          role: 'USER',
+          role: { name: 'USER' },
         })
-        .mockResolvedValueOnce({ id: 'u1', email: 'user@example.com', name: null, role: 'USER' });
+        .mockResolvedValueOnce({
+          id: 'u1',
+          email: 'user@example.com',
+          name: null,
+          role: { name: 'USER' },
+        });
 
       const result = await service.login({
         email: 'user@example.com',
@@ -199,9 +218,14 @@ describe('AuthService', () => {
           isActive: true,
           deletedAt: null,
           email: 'user@example.com',
-          role: 'USER',
+          role: { name: 'USER' },
         })
-        .mockResolvedValueOnce({ id: 'u1', email: 'user@example.com', name: null, role: 'USER' });
+        .mockResolvedValueOnce({
+          id: 'u1',
+          email: 'user@example.com',
+          name: null,
+          role: { name: 'USER' },
+        });
 
       const result = await service.refresh('u1', 'user@example.com', 'presented-token');
 

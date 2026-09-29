@@ -7,6 +7,8 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { hashRefreshToken } from '../common/utils/token-hash.util';
 import { MailService } from '../mail/mail.service';
+import { RolesService } from '../roles/roles.service';
+import { Role } from '../common/enums/role.enum';
 
 @Injectable()
 export class AuthService {
@@ -14,6 +16,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwt: JwtService,
     private mail: MailService,
+    private roles: RolesService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -31,6 +34,9 @@ export class AuthService {
         passwordHash,
         name: dto.name,
         emailVerifyToken,
+        // Roles are rows now, so the default has to be resolved rather than
+        // declared as an enum default in the schema.
+        roleId: await this.roles.idFor(Role.USER),
         subscription: {
           create: {
             plan: 'FREE',
@@ -38,17 +44,21 @@ export class AuthService {
           },
         },
       },
+      include: { role: true },
     });
 
     // Bonus: email verification. Sends via MailService (real SMTP if configured,
     // otherwise falls back to a console log - see src/mail/mail.service.ts).
     await this.mail.sendVerificationEmail(user.email, emailVerifyToken);
 
-    return this.issueTokens(user.id, user.email, user.role);
+    return this.issueTokens(user.id, user.email, user.role.name);
   }
 
   async login(dto: LoginDto) {
-    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+      include: { role: true },
+    });
     if (!user || user.deletedAt) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -61,7 +71,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    return this.issueTokens(user.id, user.email, user.role);
+    return this.issueTokens(user.id, user.email, user.role.name);
   }
 
   async refresh(userId: string, email: string, presentedRefreshToken: string) {
@@ -84,12 +94,15 @@ export class AuthService {
       data: { revoked: true },
     });
 
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
     if (!user || !user.isActive || user.deletedAt) {
       throw new UnauthorizedException('Account is no longer active');
     }
 
-    return this.issueTokens(user.id, user.email, user.role);
+    return this.issueTokens(user.id, user.email, user.role.name);
   }
 
   async logout(refreshToken: string) {
@@ -136,12 +149,18 @@ export class AuthService {
       data: { userId, refreshToken: hashRefreshToken(refreshToken), expiresAt },
     });
 
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { role: true },
+    });
 
+    // `role` stays a plain string in every response so the JWT payload, the
+    // frontend and the Postman collection are unchanged by the move from an
+    // enum column to a Role table.
     return {
       accessToken,
       refreshToken,
-      user: { id: user!.id, email: user!.email, name: user!.name, role: user!.role },
+      user: { id: user!.id, email: user!.email, name: user!.name, role: user!.role.name },
     };
   }
 }

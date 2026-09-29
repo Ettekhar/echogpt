@@ -7,11 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  USER
-  ADMIN
-}
-
 enum PlanType {
   FREE
   PREMIUM
@@ -36,12 +31,23 @@ enum MessageRole {
   SYSTEM
 }
 
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  isSystem    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+}
+
 model User {
   id                String    @id @default(uuid())
   email             String    @unique
   passwordHash      String
   name              String?
-  role              Role      @default(USER)
+  roleId            String
   isEmailVerified   Boolean   @default(false)
   emailVerifyToken  String?
   isActive          Boolean   @default(true)
@@ -49,12 +55,16 @@ model User {
   updatedAt         DateTime  @updatedAt
   deletedAt         DateTime?
 
+  role              Role      @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
   sessions          Session[]
   subscription      Subscription?
   providers         AiProvider[]
   conversations     Conversation[]
   searches          WebSearch[]
   usageLogs         ApiUsageLog[]
+
+  @@index([roleId])
 }
 
 model Session {

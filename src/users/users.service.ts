@@ -9,13 +9,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { Role } from '../common/enums/role.enum';
+import { RolesService } from '../roles/roles.service';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private roles: RolesService,
+  ) {}
 
   async getProfile(userId: string) {
-    const user = await this.findActiveUserOrThrow(userId);
+    const user = await this.findActiveUserOrThrow(userId, { role: true });
     return this.sanitize(user);
   }
 
@@ -23,6 +27,7 @@ export class UsersService {
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: { name: dto.name },
+      include: { role: true },
     });
     return this.sanitize(user);
   }
@@ -62,7 +67,7 @@ export class UsersService {
         skip,
         take: pageSize,
         orderBy: { createdAt: 'desc' },
-        include: { subscription: true },
+        include: { subscription: true, role: true },
       }),
       this.prisma.user.count(),
     ]);
@@ -75,7 +80,7 @@ export class UsersService {
   async findOne(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { subscription: true },
+      include: { subscription: true, role: true },
     });
     if (!user) throw new NotFoundException('User not found');
     return this.sanitize(user);
@@ -83,25 +88,39 @@ export class UsersService {
 
   async setRole(userId: string, role: Role) {
     await this.findActiveUserOrThrow(userId);
-    const user = await this.prisma.user.update({ where: { id: userId }, data: { role } });
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { roleId: await this.roles.idFor(role) },
+      include: { role: true },
+    });
     return this.sanitize(user);
   }
 
   async setActive(userId: string, isActive: boolean) {
     await this.findActiveUserOrThrow(userId);
-    const user = await this.prisma.user.update({ where: { id: userId }, data: { isActive } });
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { isActive },
+      include: { role: true },
+    });
     return this.sanitize(user);
   }
 
-  private async findActiveUserOrThrow(userId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+  private async findActiveUserOrThrow(userId: string, include?: { role: true }) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, include });
     if (!user || user.deletedAt) throw new NotFoundException('User not found');
     return user;
   }
 
   private sanitize(user: any) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- deliberately stripped from the response
-    const { passwordHash, emailVerifyToken, ...safe } = user;
-    return safe;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- passwordHash, emailVerifyToken and roleId are deliberately stripped from the response
+    const { passwordHash, emailVerifyToken, roleId, role, ...safe } = user;
+    void passwordHash;
+    void emailVerifyToken;
+    void roleId;
+    // The Role relation is flattened back to its bare name. Clients (and the
+    // JWT) have always seen `role: "USER" | "ADMIN"`, and moving roles into
+    // their own table should not change a single response body.
+    return { ...safe, role: role?.name ?? null };
   }
 }
