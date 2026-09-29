@@ -157,13 +157,35 @@ SEED_DEMO_PASSWORD=DemoUser123!
   return true;
 }
 
-/** Read one key out of .env, ignoring quotes and comments. */
+/**
+ * Read one key out of .env, ignoring quotes and comments.
+ *
+ * Written as a line loop rather than one regex on purpose. The obvious regex
+ * here is a bug: a character class like [^"'\r\n#]* still matches "=", so on an
+ * EMPTY value (GEMINI_API_KEY=) the match does not stop at the end of the line -
+ * it consumes the newline and returns the whole next line. That reported
+ * "GEMINI_DEFAULT_MODEL=gemini-3.8-flash" as the API key: the setup banner
+ * claimed a key existed, and the seeder was then handed the same garbage and
+ * skipped provider setup. Silent, and it broke chat.
+ */
 function envValue(key) {
   if (!fs.existsSync(ENV_PATH)) return '';
-  const m = fs.readFileSync(ENV_PATH, 'utf8').match(
-    new RegExp(`^${key}\\s*=\\s*["']?([^"'\\r\\n#]*)["']?\\s*$`, 'm'),
-  );
-  return m ? m[1].trim() : '';
+  for (const raw of fs.readFileSync(ENV_PATH, 'utf8').split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eq = line.indexOf('=');
+    if (eq === -1) continue;
+    if (line.slice(0, eq).trim() !== key) continue;
+    let val = line.slice(eq + 1).trim();
+    // Strip one layer of matching quotes, then any trailing inline comment.
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    }
+    const hash = val.indexOf(' #');
+    if (hash !== -1) val = val.slice(0, hash).trim();
+    return val.trim();
+  }
+  return '';
 }
 
 /**
