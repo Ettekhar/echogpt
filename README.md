@@ -311,6 +311,11 @@ npm run verify:admin
 # access control, and account deletion.
 $env:GEMINI_KEY = "<your key>"; npm run verify:bonus
 
+# 109 checks: walks the assignment email item by item - all 7 feature areas,
+# usage-limit enforcement, logout revocation, account deletion, Swagger
+# completeness, and the repository artifacts the submission asks for.
+$env:GEMINI_KEY = "<your key>"; npm run verify:assignment
+
 # Applies the init migration to a throwaway database and diffs it against
 # schema.prisma. Exits non-zero on drift.
 npm run verify:migration
@@ -319,6 +324,12 @@ npm run verify:migration
 All scripts accept a base URL argument (`node scripts/verify-e2e.js https://your-api/api/v1`),
 so they can be pointed at a deployed environment. The Gemini key is read from
 `GEMINI_KEY` at runtime and is never written to disk.
+
+These suites are the point of the exercise: the unit tests mock Prisma, so
+they prove the code runs but not that the wiring is real. The verify scripts
+talk to a live backend, and `verify:assignment` in particular is written
+against the assignment itself, so a missing feature shows up as a named
+failure rather than as silence.
 
 ## Gemini model selection
 
