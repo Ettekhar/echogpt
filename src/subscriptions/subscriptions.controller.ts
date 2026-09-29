@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -49,6 +58,7 @@ export class SubscriptionsController {
   }
 
   @Post('upgrade')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Upgrade subscription to PREMIUM' })
   @ApiResponse({ status: 200, description: 'Upgraded to PREMIUM' })
   upgrade(@CurrentUser('id') userId: string) {
@@ -56,6 +66,7 @@ export class SubscriptionsController {
   }
 
   @Post('downgrade')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Downgrade subscription to FREE' })
   @ApiResponse({ status: 200, description: 'Downgraded to FREE' })
   downgrade(@CurrentUser('id') userId: string) {

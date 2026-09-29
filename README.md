@@ -99,6 +99,37 @@ Gemini completion, and the admin dashboard all work from
 > every restart, and long requests have been observed dying with
 > `context canceled`. Use the fixed-host deploy below instead.
 
+### Running the public demo: `npm run host`
+
+One command for the whole public setup:
+
+```bash
+npm run host
+```
+
+It starts the API (embedded Postgres + NestJS), opens a Cloudflare quick
+tunnel, writes the assigned hostname into `frontend/config.js`, redeploys the
+Worker, and then **watches the tunnel and republishes automatically** if it dies.
+
+This matters because a quick tunnel is a separate process on a home connection:
+it gets killed by sleep, by network changes, and by anything that reaps the
+process — and its hostname is reassigned every time it restarts. The demo used
+to go silently offline in exactly that situation.
+
+**The link you hand to a reviewer never changes.** They always visit:
+
+```
+https://echogpt.taion16240.workers.dev
+```
+
+Only the tunnel target *behind* that Worker changes, and `npm run host`
+rewrites `config.js` and redeploys on its own. The frontend also carries an
+API-base failover list and an offline banner that names every host it tried,
+so a genuine outage is visible and diagnosable instead of a dead page.
+
+> This still needs the host machine to be on and connected. For a URL that
+> survives that, use the fixed-host deploy below.
+
 ### Deploying the API to a fixed host (Render)
 
 [`render.yaml`](render.yaml) is a Render blueprint. Push the repo to GitHub,

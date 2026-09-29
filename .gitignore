@@ -32,3 +32,6 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Local dev/hosting logs (written by scripts/dev.js and scripts/host.js)
+.devserver.log
