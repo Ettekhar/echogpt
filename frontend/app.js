@@ -1258,6 +1258,14 @@
 
       // Subscription doughnut
       buildSubChart(premiumSubs, freeSubs);
+    } else if (dashRes.status === 'rejected') {
+      // Blank the cards instead of leaving the previous session's numbers on
+      // screen. A stale "44 total users" reads as live data, which is exactly
+      // the wrong impression when the call was refused.
+      for (const id of [
+        'valTotalUsers', 'valActiveUsers', 'valActiveSubscriptions', 'valFreeSubs',
+        'valTotalRequests', 'valTotalMessages', 'valTotalConversations', 'valTotalSearches',
+      ]) safeSet(id, '—');
     }
 
     // System Health
@@ -1272,6 +1280,11 @@
       safeSet('valUptimeBadge', uptimeStr);
       safeSet('lblUptime', `DB: ${h.database || 'up'}`);
       safeSet('perfUptime', uptimeStr);
+    } else if (healthRes.status === 'rejected') {
+      safeSet('valSystemHealth', '—');
+      safeSet('valUptimeBadge', '—');
+      safeSet('lblUptime', 'DB: —');
+      safeSet('perfUptime', '—');
     }
 
     // Users Table
@@ -1537,21 +1550,27 @@
     }
 
     tbody.innerHTML = slice.map(u => `
-      <tr>
+      <tr${u.deletedAt ? ' style="opacity:.62;"' : ''}>
         <td style="font-family:var(--font-mono);font-size:10px;color:#94a3b8;">${(u.id||'').substring(0, 8)}…</td>
         <td style="font-weight:600;font-size:12px;">${u.email}</td>
         <td style="font-size:12px;">${u.name || '—'}</td>
         <td><span class="badge-role">${u.role}</span></td>
         <td style="font-size:12px;">${u.isEmailVerified ? '✅' : '❌'}</td>
-        <td>${u.isActive
-          ? '<span style="color:#10b981;font-weight:700;font-size:11px;">● Active</span>'
-          : '<span style="color:#ef4444;font-weight:700;font-size:11px;">● Suspended</span>'}</td>
+        <td>${u.deletedAt
+          ? `<span style="color:#94a3b8;font-weight:700;font-size:11px;" title="Soft-deleted ${new Date(u.deletedAt).toLocaleString()}">● Deleted</span>`
+          : u.isActive
+            ? '<span style="color:#10b981;font-weight:700;font-size:11px;">● Active</span>'
+            : '<span style="color:#ef4444;font-weight:700;font-size:11px;">● Suspended</span>'}</td>
         <td><span style="font-size:10px;background:${u.subscription?.plan==='PREMIUM'?'#e0e7ff':'#f1f5f9'};color:${u.subscription?.plan==='PREMIUM'?'#3730a3':'#64748b'};padding:2px 7px;border-radius:999px;font-weight:700;">${u.subscription?.plan || 'FREE'}</span></td>
         <td style="color:#94a3b8;font-size:11px;">${new Date(u.createdAt).toLocaleDateString()}</td>
         <td style="white-space:nowrap;">
-          ${u.isActive
-            ? `<button class="tbl-action-btn suspend" onclick="window.EchoApp.adminSuspend('${u.id}')">Suspend</button>`
-            : `<button class="tbl-action-btn activate" onclick="window.EchoApp.adminReactivate('${u.id}')">Reactivate</button>`}
+          ${u.deletedAt
+            // Reactivate would flip isActive but login still rejects on deletedAt,
+            // so offering it implies a restore that cannot actually happen.
+            ? '<span style="font-size:10.5px;color:#94a3b8;">Retained for audit log</span>'
+            : u.isActive
+              ? `<button class="tbl-action-btn suspend" onclick="window.EchoApp.adminSuspend('${u.id}')">Suspend</button>`
+              : `<button class="tbl-action-btn activate" onclick="window.EchoApp.adminReactivate('${u.id}')">Reactivate</button>`}
           <button class="tbl-action-btn role" onclick="window.EchoApp.adminChangeRole('${u.id}','${u.role}')">${u.role === 'ADMIN' ? 'Make User' : 'Make Admin'}</button>
         </td>
       </tr>
