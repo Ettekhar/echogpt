@@ -235,6 +235,20 @@ changes with:
 npm run generate:postman
 ```
 
+## The docs page has a console too
+
+`/api/v1/docs` carries the same floating API console as the main UI. Expand an
+endpoint, press **Execute**, and the request lands in the panel with its status
+and duration; click a row to read the request and response bodies, or to copy it
+as a `curl` command. Drag the header or the footer to move it, drag any edge or
+corner to resize, and double-click either bar to snap it back.
+
+It hooks `fetch` and `XMLHttpRequest` rather than Swagger's internals, so
+everything on the page is captured in one list in the order it happened - not
+just the endpoint you happen to be looking at. The in-app console and this one
+share a look, not code: the app's version also pops out into a window of its own
+(see [The API monitor](#the-api-monitor)).
+
 ## Testing
 
 ```bash
@@ -246,7 +260,7 @@ Covers: `AuthService` (register/login/refresh rotation/logout, all failure paths
 `SubscriptionsService` (daily usage reset, limit enforcement, plan changes),
 `ProvidersService` (encrypted-key round-trip, ownership checks, health check), `AdminService`
 (subscription override, provider enable/disable/delete, system health), and the AES-256-GCM
-crypto + refresh-token-hash utilities directly (no mocks needed for those). 45 tests across 6
+crypto + refresh-token-hash utilities directly (no mocks needed for those). 48 tests across 6
 suites.
 
 ### End-to-end verification against a running server

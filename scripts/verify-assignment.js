@@ -296,11 +296,22 @@ const unwrapList = (d) => {
   // ==========================================================================
   section('5. CHAT API');
 
-  const chat = await req('POST', '/chat/messages', { token: userToken, body: { message: 'Reply with exactly: AUDIT_OK' } });
-  log(chat.status === 201 || chat.status === 200, 'Send Prompt / Receive AI Response  POST /chat/messages', `status=${chat.status} ${chat.text.slice(0, 140)}`);
-  const chatData = data(chat) || {};
-  log(!!(chatData.message && chatData.message.content), 'Response contains assistant content', JSON.stringify(chatData).slice(0, 140));
-  log(!!chatData.conversationId, 'Conversation created and id returned', 'no conversationId');
+  // The provider created above carries a real key only when GEMINI_KEY is set;
+  // without one it holds a placeholder, so a live call is guaranteed to 503 and
+  // reporting that as a failure would say the wiring is broken when it is not.
+  // Guarded the same way as the health check and the streaming check above.
+  let chatData = {};
+  if (GEMINI_KEY) {
+    const chat = await req('POST', '/chat/messages', { token: userToken, body: { message: 'Reply with exactly: AUDIT_OK' } });
+    log(chat.status === 201 || chat.status === 200, 'Send Prompt / Receive AI Response  POST /chat/messages', `status=${chat.status} ${chat.text.slice(0, 140)}`);
+    chatData = data(chat) || {};
+    log(!!(chatData.message && chatData.message.content), 'Response contains assistant content', JSON.stringify(chatData).slice(0, 140));
+    log(!!chatData.conversationId, 'Conversation created and id returned', 'no conversationId');
+  } else {
+    skipTest('Send Prompt / Receive AI Response  POST /chat/messages', 'GEMINI_KEY not set');
+    skipTest('Response contains assistant content', 'GEMINI_KEY not set');
+    skipTest('Conversation created and id returned', 'GEMINI_KEY not set');
+  }
 
   if (chatData.conversationId) {
     const convs = await req('GET', '/chat/conversations', { token: userToken });

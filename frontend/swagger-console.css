@@ -1,0 +1,228 @@
+﻿/*
+ * Styles for the floating request console on the Swagger UI page.
+ *
+ * Everything is scoped to `.sgc-` classes and the two ids the script injects,
+ * so nothing here can leak into Swagger's own stylesheet. It deliberately does
+ * not import styles.css - that file sets body background and font for the app
+ * shell, which would fight the docs page.
+ */
+
+.sgc-panel {
+  position: fixed;
+  z-index: 2147483000;
+  right: 18px;
+  bottom: 18px;
+  width: 460px;
+  height: 340px;
+  min-width: 320px;
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  background: #0b1220;
+  color: #e2e8f0;
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  overflow: hidden;
+}
+
+.sgc-panel.sgc-hidden {
+  display: none;
+}
+
+.sgc-head,
+.sgc-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: #111c30;
+  flex: 0 0 auto;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.sgc-head {
+  border-bottom: 1px solid #1e293b;
+}
+
+.sgc-foot {
+  border-top: 1px solid #1e293b;
+  cursor: grab;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.sgc-head.sgc-dragging,
+.sgc-foot.sgc-dragging {
+  cursor: grabbing;
+}
+
+.sgc-title {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.sgc-spacer {
+  flex: 1 1 auto;
+}
+
+.sgc-btn {
+  appearance: none;
+  border: 1px solid #334155;
+  background: #1e293b;
+  color: #cbd5e1;
+  border-radius: 6px;
+  padding: 3px 9px;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.sgc-btn:hover {
+  background: #334155;
+  color: #f1f5f9;
+}
+
+.sgc-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 0;
+}
+
+.sgc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.sgc-row:hover {
+  background: #16223a;
+}
+
+.sgc-row.sgc-sel {
+  background: #1d2c4a;
+}
+
+.sgc-method {
+  flex: 0 0 52px;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.sgc-path {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #cbd5e1;
+}
+
+.sgc-status {
+  flex: 0 0 auto;
+  font-weight: 700;
+}
+
+.sgc-ms {
+  flex: 0 0 58px;
+  text-align: right;
+  color: #64748b;
+}
+
+.sgc-method-GET { color: #4ade80; }
+.sgc-method-POST { color: #60a5fa; }
+.sgc-method-PATCH,
+.sgc-method-PUT { color: #fbbf24; }
+.sgc-method-DELETE { color: #f87171; }
+
+.sgc-ok { color: #4ade80; }
+.sgc-redirect { color: #38bdf8; }
+.sgc-clienterr { color: #fbbf24; }
+.sgc-servererr { color: #f87171; }
+.sgc-fail { color: #f87171; }
+.sgc-pending { color: #64748b; }
+
+.sgc-empty {
+  padding: 14px 12px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.sgc-pre {
+  flex: 0 0 auto;
+  max-height: 34%;
+  overflow: auto;
+  margin: 0;
+  padding: 8px 10px;
+  border-top: 1px solid #1e293b;
+  background: #070d18;
+  color: #93c5fd;
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.sgc-pre.sgc-hidden {
+  display: none;
+}
+
+.sgc-grip {
+  position: absolute;
+  z-index: 1;
+}
+
+.sgc-grip-n { top: -3px; left: 8px; right: 8px; height: 7px; cursor: ns-resize; }
+.sgc-grip-s { bottom: -3px; left: 8px; right: 8px; height: 7px; cursor: ns-resize; }
+.sgc-grip-w { left: -3px; top: 8px; bottom: 8px; width: 7px; cursor: ew-resize; }
+.sgc-grip-e { right: -3px; top: 8px; bottom: 8px; width: 7px; cursor: ew-resize; }
+.sgc-grip-nw { top: -3px; left: -3px; width: 12px; height: 12px; cursor: nwse-resize; }
+.sgc-grip-ne { top: -3px; right: -3px; width: 12px; height: 12px; cursor: nesw-resize; }
+.sgc-grip-sw { bottom: -3px; left: -3px; width: 12px; height: 12px; cursor: nesw-resize; }
+.sgc-grip-se { bottom: -3px; right: -3px; width: 12px; height: 12px; cursor: nwse-resize; }
+
+/* ---- quick-send bar ---- */
+
+
+/* ---- toast ---- */
+
+.sgc-toasts {
+  position: fixed;
+  z-index: 2147483100;
+  right: 18px;
+  top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.sgc-toast {
+  background: #0b1220;
+  color: #e2e8f0;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  animation: sgc-toast-in 0.14s ease-out;
+}
+
+@keyframes sgc-toast-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sgc-toast { animation: none; }
+}

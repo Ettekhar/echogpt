@@ -68,6 +68,11 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup(`${apiPrefix}/docs`, app, document, {
     swaggerOptions: { persistAuthorization: true },
+    // A quick-send bar and a floating request console, so a reviewer can send a
+    // real request and watch it land without filling in a form per endpoint.
+    // Served from the same static mount as the UI, hence the root-relative paths.
+    customJs: ['/swagger-console.js'],
+    customCssUrl: ['/swagger-console.css'],
   });
 
   const port = process.env.PORT || 3000;
