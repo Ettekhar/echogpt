@@ -26,7 +26,7 @@ window.ECHOGPT_CONFIG = {
   // Primary backend. Currently exposed from localhost:3001 via a Cloudflare
   // quick Tunnel, whose hostname is assigned per-process and changes on every
   // restart. Treat this as disposable.
-  apiBase: 'https://could-golden-nitrogen-pan.trycloudflare.com/api/v1',
+  apiBase: 'https://mariah-filed-therapeutic-sen.trycloudflare.com/api/v1',
 
   // Tried in order when the primary does not answer GET /health.
   // Add a permanent host here (e.g. 'https://echogpt-api.onrender.com/api/v1')

@@ -109,6 +109,7 @@ function startTunnel() {
     const logStream = fs.createWriteStream(logPath, { flags: 'a' });
 
     let settled = false;
+    let banner = '';
     const timer = setTimeout(() => {
       if (settled) return;
       settled = true;
@@ -118,12 +119,23 @@ function startTunnel() {
     const onData = (buf) => {
       const text = buf.toString();
       logStream.write(text);
-      // cloudflared prints e.g. "https://some-words.trycloudflare.com" in its banner
-      const m = text.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/i);
-      if (m && !settled) {
+      // cloudflared prints the tunnel hostname in its banner, e.g.
+      // "https://some-words-here.trycloudflare.com". Do not just take the first
+      // trycloudflare.com URL in the stream: cloudflared's *error* messages
+      // mention https://api.trycloudflare.com, which is Cloudflare's API host
+      // rather than a tunnel. Adopting it sends the watchdog into an endless
+      // restart loop, because that host never serves this API. A real quick
+      // tunnel is several words joined by hyphens, so require a hyphen.
+      //
+      // Accumulate first: stdout arrives in arbitrary chunks, so a hostname can
+      // straddle two of them.
+      banner = (banner + text).slice(-8192);
+      const candidates = banner.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/gi) || [];
+      const url = candidates.find((u) => /-[a-z0-9-]+\.trycloudflare\.com$/i.test(u));
+      if (url && !settled) {
         settled = true;
         clearTimeout(timer);
-        resolve(m[0]);
+        resolve(url);
       }
     };
     tunnelProc.stderr.on('data', onData);
