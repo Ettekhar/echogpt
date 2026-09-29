@@ -145,6 +145,18 @@ function startTunnel() {
       if (!settled) {
         settled = true;
         clearTimeout(timer);
+        // cloudflared reports a refused tunnel on stderr and then exits, so the
+        // reason only exists in the banner we already captured. Without lifting
+        // it out here the caller sees "exited early (code 1)", which is both
+        // wrong and useless for deciding how long to back off.
+        if (/429|provisioning failed/i.test(banner)) {
+          reject(
+            new Error(
+              'Cloudflare refused to issue a quick tunnel (429 - too many tunnels requested recently)',
+            ),
+          );
+          return;
+        }
         reject(new Error(`tunnel exited early (code ${code}) — see ${logPath}`));
       }
     });
@@ -325,17 +337,39 @@ function shutdown() {
   // Watchdog: the tunnel is a separate process on a home network and it *will*
   // die. When it does, cut a new one and republish, so the demo recovers on
   // its own instead of staying broken until someone notices.
+  // Recoveries back off. Cloudflare rate-limits account-less quick tunnels
+  // (HTTP 429), and retrying on every cycle when that is the cause keeps the
+  // limit in place: the watchdog could not win its own retry storm, so the demo
+  // stayed down even once the limit would have expired by itself. Backing off
+  // turns a permanent outage into one that clears without intervention.
+  let consecutiveFailures = 0;
+  let pausedUntil = 0;
+  const backoffMs = () => Math.min(HEALTH_INTERVAL * Math.pow(2, consecutiveFailures), 5 * 60_000);
+
   say('watchdog active — polling every ' + HEALTH_INTERVAL / 1000 + 's');
   setInterval(async () => {
+    if (Date.now() < pausedUntil) return;
     const alive = currentUrl && (await waitForHealth(`${currentUrl}/api/v1/health`, 2000));
-    if (alive) return;
+    if (alive) {
+      if (consecutiveFailures > 0) say('tunnel answering again — back to normal polling');
+      consecutiveFailures = 0;
+      return;
+    }
     say('tunnel is not answering — restarting');
     killTunnel();
     try {
       await bringUp();
       say('recovered');
+      consecutiveFailures = 0;
     } catch (e) {
-      say(`recovery failed: ${e.message} — retrying next cycle`);
+      consecutiveFailures++;
+      const wait = backoffMs();
+      pausedUntil = Date.now() + wait;
+      const rateLimited = /429|provisioning failed/i.test(e.message);
+      say(
+        `recovery failed: ${e.message} — ${rateLimited ? 'rate limited by Cloudflare, ' : ''}` +
+          `next attempt in ${Math.round(wait / 1000)}s`,
+      );
     }
   }, HEALTH_INTERVAL);
 
