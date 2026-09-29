@@ -7,26 +7,59 @@ Production-oriented backend for the **EchoGPT** Chrome Extension (multi-AI chat)
 
 ## Run it
 
+**You need [Node.js](https://nodejs.org) 20 or newer. That is the only
+prerequisite.**
+
 ```bash
+git clone https://github.com/Ettekhar/echogpt.git
+cd echogpt
 npm install
 npm run demo
 ```
 
-That is the entire setup. No `.env` to write, no database to provision, no API key
-to obtain, no account to create. `npm run demo` generates a working `.env` with
-randomly generated secrets, starts an embedded PostgreSQL, applies migrations,
-seeds the demo accounts along with a little sample chat history, serves the UI,
-and opens your browser. The setup verifies what actually landed in the database
-and tells you, rather than reporting success on the strength of an exit code.
+That is the entire setup. No `.env` to write, no database to install, no API key
+to obtain, no account to create, no Docker. `npm run demo` generates a working
+`.env` with randomly generated secrets, starts an embedded PostgreSQL, applies
+migrations, seeds two accounts plus some sample chat history, serves the web UI
+and API together, and opens your browser. It also checks what actually landed in
+the database and tells you, rather than reporting success on the strength of an
+exit code.
 
-Then open **<http://localhost:3001/>** and sign in:
+It takes a couple of minutes on the first run, most of it `npm install`.
 
-| Account | Email | Password |
-| --- | --- | --- |
-| Admin (full admin panel) | `admin@echogpt.app` | `ChangeMe123!` |
-| Demo (regular user) | `demo@echogpt.app` | `DemoUser123!` |
+### Then sign in
 
-Swagger is at <http://localhost:3001/api/v1/docs>.
+Open **<http://localhost:3001/>** and use either account:
+
+| Account | Email | Password | What it shows |
+| --- | --- | --- | --- |
+| Admin | `admin@echogpt.app` | `ChangeMe123!` | Everything, including the admin panel |
+| Demo | `demo@echogpt.app` | `DemoUser123!` | The regular user experience |
+
+| | |
+| --- | --- |
+| Web UI | <http://localhost:3001/> |
+| Swagger / OpenAPI | <http://localhost:3001/api/v1/docs> |
+| Health check | <http://localhost:3001/api/v1/health> |
+
+Press `Ctrl+C` to stop. Run the same command again to bring it back.
+
+Already set up and waiting: both accounts, three backdated conversations, some
+search history, subscription plans, and usage records — so the dashboard has
+something real to display instead of looking broken on a fresh install. The
+**API Monitor** panel in the corner lists every request the page makes to the
+backend, live, as it happens.
+
+### The API monitor
+
+Open it from the **API Monitor** tab at the bottom-left. It is a floating window:
+drag the header to move it, drag any edge or corner to resize it, and
+double-click the header to snap it back to the default. It remembers where you
+put it. Click any row to copy that request as a `curl` command, including the
+auth header and body.
+
+It exists so the API can be seen working rather than taken on trust — you can
+watch `GET /health 200` land as the page loads.
 
 ### About the AI key
 
@@ -61,200 +94,35 @@ different concern (see [`DEPLOY.md`](DEPLOY.md)).
 - **JWT** access + refresh tokens (rotation on refresh)
 - **bcrypt** password hashing
 - **AES-256-GCM** encryption at rest for stored AI provider API keys
-- **Docker Compose** for local Postgres + API
+- **Embedded PostgreSQL** by default, so nothing needs installing — a
+  `docker-compose.yml` is included if you would rather point it at your own
 
 ## 🚀 Recruiter Demo & Entry Points
 
-Give recruiters the three convenient entry points to test the assignment:
+URLs and the two logins are in [Run it](#run-it) above. A few things worth
+knowing about them:
 
-### 1. Live Interactive Frontend
-- **Local:** [http://localhost:3001/](http://localhost:3001/)
-- **Deployed (Cloudflare):** https://echogpt.taion16240.workers.dev
-
-### 2. Swagger / OpenAPI Documentation
-- **Local:** [http://localhost:3001/api/v1/docs](http://localhost:3001/api/v1/docs)
-- **Route:** `GET /api/v1/docs` · machine-readable spec at `GET /api/v1/docs-json`
-
-### 3. Test Credentials Pre-Seeded
-- **Admin Account:** `admin@echogpt.app` / `ChangeMe123!`
-- **Demo Account:** `demo@echogpt.app` / `DemoUser123!`
-
-Create both with `npm run seed`. The seed is idempotent and re-running it resets
-the passwords, so it is the fastest way back to a known-good state.
-
-When `GEMINI_API_KEY` is set, the seed provisions the Gemini provider for **both**
-accounts, so either one can chat immediately. Without that variable the seed skips
-provider setup rather than storing a placeholder key that would fail its health
-check later.
-
-The hosted demo auto-signs visitors in as the **demo** account (`USER` role), so a
-reviewer can chat without credentials. It deliberately does not auto-sign in as
-admin — doing so would publish the admin panel and the user table to anyone who
-opened the page. Sign in as the admin account explicitly to reach it.
+- The machine-readable OpenAPI spec is at `GET /api/v1/docs-json`.
+- Both accounts come from `npm run seed`. The seed is idempotent, and re-running
+  it resets the passwords, so it is the fastest way back to a known-good state.
+- When `GEMINI_API_KEY` is set, the seed provisions the Gemini provider for
+  **both** accounts, so either one can chat immediately. Without that variable
+  the seed skips provider setup rather than storing a placeholder key that would
+  fail its health check later.
+- The hosted demo auto-signs visitors in as the **demo** account (`USER` role), so
+  a reviewer can chat without credentials. It deliberately does not auto-sign in
+  as admin — that would publish the admin panel and the user table to anyone who
+  opened the page. Sign in as the admin account explicitly to reach it.
 
 > These passwords are committed to this repository. Change `SEED_ADMIN_PASSWORD` /
 > `SEED_DEMO_PASSWORD` before putting any real user data behind this deployment.
 
 ---
+### `npm run dev` — the short version
 
-## ⚠️ Running the public demo URL
-
-`npm run demo` serves everything from one origin on localhost, which is all a
-reviewer needs locally. A **public** URL is a separate problem, because the API is
-a Node + Postgres service that has to run somewhere continuously.
-
-For a URL that works from someone else's machine, see [`DEPLOY.md`](DEPLOY.md).
-The short version: the frontend goes to Cloudflare, the API runs on a host
-that supports Node and Postgres.
-
-`localhost` in a browser means **the visitor's own machine**. A page served from
-`https://echogpt.taion16240.workers.dev` therefore cannot reach a backend on
-someone else's `localhost:3001` — which is why the API shows as offline for any
-visitor who is not running the backend themselves.
-
-The API base URL is resolved in this order:
-
-1. `localStorage.echogpt_api_base` — per-browser override, set from the
-   **API Base URL** box in the demo UI
-2. `window.ECHOGPT_CONFIG.apiBase` — from [`frontend/config.js`](frontend/config.js)
-3. same-origin `/api/v1` — when the API also serves the frontend (`npm run dev`)
-4. `http://localhost:3001/api/v1` — last-resort local default
-
-To make the hosted demo work for everyone, set `apiBase` in `frontend/config.js`
-to a publicly reachable backend and redeploy. CORS is already handled: the API
-reflects the requesting origin and answers preflights (configurable via
-`CORS_ORIGIN`; lock it to your own domain in production).
-
-### Exposing a local backend with a Cloudflare Tunnel
-
-For a zero-cost public demo, a Cloudflare Tunnel fronts the API running on your
-machine. Nothing about the API changes — it still serves `localhost:3001`.
-
-```bash
-# 1. Download cloudflared (https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)
-# 2. Start the tunnel and note the assigned hostname:
-cloudflared tunnel --url http://localhost:3001
-#   -> https://<random-words>.trycloudflare.com
-
-# 3. Point the frontend at it and redeploy:
-#    frontend/config.js  ->  apiBase: 'https://<random-words>.trycloudflare.com/api/v1'
-npx wrangler deploy
-```
-
-Verified end to end: login, subscription usage, provider health check, a live
-Gemini completion, and the admin dashboard all work from
-`https://echogpt.taion16240.workers.dev` against the tunneled backend.
-
-> **A quick tunnel's hostname is assigned per-process and changes on every
-> restart.** That is fine for a demo you drive yourself, but it is not something
-> to hand a reviewer: `frontend/config.js` has to be edited and redeployed after
-> every restart, and long requests have been observed dying with
-> `context canceled`. Use the fixed-host deploy below instead.
-
-### Running the public demo: `npm run host`
-
-One command for the whole public setup:
-
-```bash
-npm run host
-```
-
-It starts the API (embedded Postgres + NestJS), opens a Cloudflare quick
-tunnel, writes the assigned hostname into `frontend/config.js`, redeploys the
-Worker, and then **watches the tunnel and republishes automatically** if it dies.
-
-This matters because a quick tunnel is a separate process on a home connection:
-it gets killed by sleep, by network changes, and by anything that reaps the
-process — and its hostname is reassigned every time it restarts. The demo used
-to go silently offline in exactly that situation.
-
-**The link you hand to a reviewer never changes.** They always visit:
-
-```
-https://echogpt.taion16240.workers.dev
-```
-
-Only the tunnel target *behind* that Worker changes, and `npm run host`
-rewrites `config.js` and redeploys on its own. The frontend also carries an
-API-base failover list and an offline banner that names every host it tried,
-so a genuine outage is visible and diagnosable instead of a dead page.
-
-> **This still needs your PC to be on.** If you shut it down or restart, the API
-> and the tunnel are both gone and the demo breaks until you run `npm run host`
-> again. The Worker URL keeps loading, but every API call fails.
->
-> For a link that survives that, deploy the API to a real host — see
-> [`DEPLOY.md`](DEPLOY.md). That is the only way the demo stops depending on
-> your laptop.
-
-### Deploying the API to a real host
-
-Full step-by-step in **[`DEPLOY.md`](DEPLOY.md)**. The short version:
-
-```bash
-fly launch --no-deploy --copy-config --name echogpt-api
-fly secrets set DATABASE_URL="postgresql://..." JWT_ACCESS_SECRET="..." \
-  JWT_REFRESH_SECRET="..." PROVIDER_KEY_ENCRYPTION_SECRET="$(openssl rand -hex 32)" \
-  CORS_ORIGIN="https://echogpt.taion16240.workers.dev" GEMINI_API_KEY="..." \
-  SEED_ADMIN_PASSWORD="..." SEED_DEMO_PASSWORD="..."
-fly deploy
-```
-
-Then point the frontend at the result and redeploy the Worker:
-
-```js
-// frontend/config.js
-apiBase: 'https://echogpt-api.fly.dev/api/v1',
-apiBaseFallbacks: [],   // the tunnel hostname is meaningless now
-```
-
-```bash
-npm run deploy
-```
-
-`fly.toml`, `render.yaml` and `Dockerfile` are all committed, so Fly.io, Render
-and any Docker host are all one command away. The short version of which to pick:
-
-| | Runs always | Free | Notes |
-| --- | --- | --- | --- |
-| **Fly.io** (`fly.toml`) | yes | yes | Recommended. Free allowance keeps a machine resident. |
-| Render (`render.yaml`) | no | yes | Free web service sleeps after ~15 min idle; free Postgres expires in 30 days. |
-| Any VPS (`Dockerfile`) | yes | — | Needs a server and a card. `--restart unless-stopped` survives reboots. |
-
-> **Why not Cloudflare Workers or Vercel for the API?** Both were considered and
-> neither fits. This app streams chat over Server-Sent Events and holds a
-> persistent Prisma connection to Postgres. Workers only get a few seconds of
-> execution and no TCP sockets; Vercel functions freeze between requests. The
-> *frontend* stays on Workers — that is a good fit for static files. Only the
-> backend has to move.
-
-`PROVIDER_KEY_ENCRYPTION_SECRET` must be **exactly 32 bytes of hex (64
-characters)**. A wrong length does not fail loudly — it silently breaks
-decryption of stored provider keys, so every health check starts reporting the
-providers as broken.
-
----
-
-## ☁️ Deploying Frontend to Cloudflare Pages (100% Free)
-
-The `frontend/` folder is designed specifically for **zero-friction, zero-cost Cloudflare Pages hosting**:
-1. Connect your repository to **Cloudflare Pages** (or run `npx wrangler pages deploy frontend`).
-2. Set Build command: *(leave blank - no build step required)*.
-3. Set Output directory: `frontend`.
-4. Done! It deploys globally on Cloudflare's CDN. The frontend includes an instant API Base URL switcher in the top bar so anyone can connect it to either local or deployed backend APIs.
-
----
-
-## Quick start (Local)
-
-```bash
-# Start embedded PostgreSQL and NestJS together in one command:
-npm run dev
-```
-
-- API Base: `http://localhost:3001/api/v1`
-- Demo Frontend: `http://localhost:3001/`
-- Swagger Docs: `http://localhost:3001/api/v1/docs`
+`npm run demo` does setup and then starts the app. Once the database exists,
+`npm run dev` on its own just starts the embedded PostgreSQL and the API — the
+same thing without the one-time setup, and the command to use from then on.
 
 ## Project layout
 
@@ -467,3 +335,159 @@ still works end-to-end in local dev without real credentials.
 Refresh tokens are stored as an HMAC-SHA256 hash (`src/common/utils/token-hash.util.ts`), never in
 plaintext, so a leaked `Session` table row alone can't be replayed as a live session.
 
+
+---
+
+## Deploying (optional)
+
+None of this is required to run, review, or test the project. It is kept here
+for producing a public URL, and is the last section on purpose.
+
+
+### ⚠️ Running the public demo URL
+
+`npm run demo` serves everything from one origin on localhost, which is all a
+reviewer needs locally. A **public** URL is a separate problem, because the API is
+a Node + Postgres service that has to run somewhere continuously.
+
+For a URL that works from someone else's machine, see [`DEPLOY.md`](DEPLOY.md).
+The short version: the frontend goes to Cloudflare, the API runs on a host
+that supports Node and Postgres.
+
+`localhost` in a browser means **the visitor's own machine**. A page served from
+`https://echogpt.taion16240.workers.dev` therefore cannot reach a backend on
+someone else's `localhost:3001` — which is why the API shows as offline for any
+visitor who is not running the backend themselves.
+
+The API base URL is resolved in this order:
+
+1. `localStorage.echogpt_api_base` — per-browser override, set from the
+   **API Base URL** box in the demo UI
+2. `window.ECHOGPT_CONFIG.apiBase` — from [`frontend/config.js`](frontend/config.js)
+3. same-origin `/api/v1` — when the API also serves the frontend (`npm run dev`)
+4. `http://localhost:3001/api/v1` — last-resort local default
+
+To make the hosted demo work for everyone, set `apiBase` in `frontend/config.js`
+to a publicly reachable backend and redeploy. CORS is already handled: the API
+reflects the requesting origin and answers preflights (configurable via
+`CORS_ORIGIN`; lock it to your own domain in production).
+
+#### Exposing a local backend with a Cloudflare Tunnel
+
+For a zero-cost public demo, a Cloudflare Tunnel fronts the API running on your
+machine. Nothing about the API changes — it still serves `localhost:3001`.
+
+```bash
+# 1. Download cloudflared (https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)
+# 2. Start the tunnel and note the assigned hostname:
+cloudflared tunnel --url http://localhost:3001
+#   -> https://<random-words>.trycloudflare.com
+
+# 3. Point the frontend at it and redeploy:
+#    frontend/config.js  ->  apiBase: 'https://<random-words>.trycloudflare.com/api/v1'
+npx wrangler deploy
+```
+
+Verified end to end: login, subscription usage, provider health check, a live
+Gemini completion, and the admin dashboard all work from
+`https://echogpt.taion16240.workers.dev` against the tunneled backend.
+
+> **A quick tunnel's hostname is assigned per-process and changes on every
+> restart.** That is fine for a demo you drive yourself, but it is not something
+> to hand a reviewer: `frontend/config.js` has to be edited and redeployed after
+> every restart, and long requests have been observed dying with
+> `context canceled`. Use the fixed-host deploy below instead.
+
+#### Running the public demo: `npm run host`
+
+One command for the whole public setup:
+
+```bash
+npm run host
+```
+
+It starts the API (embedded Postgres + NestJS), opens a Cloudflare quick
+tunnel, writes the assigned hostname into `frontend/config.js`, redeploys the
+Worker, and then **watches the tunnel and republishes automatically** if it dies.
+
+This matters because a quick tunnel is a separate process on a home connection:
+it gets killed by sleep, by network changes, and by anything that reaps the
+process — and its hostname is reassigned every time it restarts. The demo used
+to go silently offline in exactly that situation.
+
+**The link you hand to a reviewer never changes.** They always visit:
+
+```
+https://echogpt.taion16240.workers.dev
+```
+
+Only the tunnel target *behind* that Worker changes, and `npm run host`
+rewrites `config.js` and redeploys on its own. The frontend also carries an
+API-base failover list and an offline banner that names every host it tried,
+so a genuine outage is visible and diagnosable instead of a dead page.
+
+> **This still needs your PC to be on.** If you shut it down or restart, the API
+> and the tunnel are both gone and the demo breaks until you run `npm run host`
+> again. The Worker URL keeps loading, but every API call fails.
+>
+> For a link that survives that, deploy the API to a real host — see
+> [`DEPLOY.md`](DEPLOY.md). That is the only way the demo stops depending on
+> your laptop.
+
+#### Deploying the API to a real host
+
+Full step-by-step in **[`DEPLOY.md`](DEPLOY.md)**. The short version:
+
+```bash
+fly launch --no-deploy --copy-config --name echogpt-api
+fly secrets set DATABASE_URL="postgresql://..." JWT_ACCESS_SECRET="..." \
+  JWT_REFRESH_SECRET="..." PROVIDER_KEY_ENCRYPTION_SECRET="$(openssl rand -hex 32)" \
+  CORS_ORIGIN="https://echogpt.taion16240.workers.dev" GEMINI_API_KEY="..." \
+  SEED_ADMIN_PASSWORD="..." SEED_DEMO_PASSWORD="..."
+fly deploy
+```
+
+Then point the frontend at the result and redeploy the Worker:
+
+```js
+// frontend/config.js
+apiBase: 'https://echogpt-api.fly.dev/api/v1',
+apiBaseFallbacks: [],   // the tunnel hostname is meaningless now
+```
+
+```bash
+npm run deploy
+```
+
+`fly.toml`, `render.yaml` and `Dockerfile` are all committed, so Fly.io, Render
+and any Docker host are all one command away. The short version of which to pick:
+
+| | Runs always | Free | Notes |
+| --- | --- | --- | --- |
+| **Fly.io** (`fly.toml`) | yes | yes | Recommended. Free allowance keeps a machine resident. |
+| Render (`render.yaml`) | no | yes | Free web service sleeps after ~15 min idle; free Postgres expires in 30 days. |
+| Any VPS (`Dockerfile`) | yes | — | Needs a server and a card. `--restart unless-stopped` survives reboots. |
+
+> **Why not Cloudflare Workers or Vercel for the API?** Both were considered and
+> neither fits. This app streams chat over Server-Sent Events and holds a
+> persistent Prisma connection to Postgres. Workers only get a few seconds of
+> execution and no TCP sockets; Vercel functions freeze between requests. The
+> *frontend* stays on Workers — that is a good fit for static files. Only the
+> backend has to move.
+
+`PROVIDER_KEY_ENCRYPTION_SECRET` must be **exactly 32 bytes of hex (64
+characters)**. A wrong length does not fail loudly — it silently breaks
+decryption of stored provider keys, so every health check starts reporting the
+providers as broken.
+
+---
+
+### ☁️ Deploying Frontend to Cloudflare Pages (100% Free)
+
+The `frontend/` folder is designed specifically for **zero-friction, zero-cost Cloudflare Pages hosting**:
+1. Connect your repository to **Cloudflare Pages** (or run `npx wrangler pages deploy frontend`).
+2. Set Build command: *(leave blank - no build step required)*.
+3. Set Output directory: `frontend`.
+4. Done! It deploys globally on Cloudflare's CDN. The frontend includes an instant API Base URL switcher in the top bar so anyone can connect it to either local or deployed backend APIs.
+
+---

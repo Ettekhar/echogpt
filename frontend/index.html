@@ -788,16 +788,20 @@
   <!-- API REQUEST MONITOR
        Live view of every request this page makes to the NestJS backend, so a
        reviewer can watch the API being exercised rather than take it on trust.
-       Click any row to copy the equivalent curl command. -->
+       Click any row to copy the equivalent curl command.
+
+       The panel behaves like a desktop window: drag the header to move it, drag
+       any edge or corner to resize it, and double-click the header to snap it
+       back to its default. Position and size persist across reloads. -->
   <div class="api-monitor" id="apiMonitor">
     <div class="api-monitor-panel hidden" id="apiMonitorPanel">
-      <div class="api-monitor-head">
+      <div class="api-monitor-head" id="apiMonitorHead">
         <div class="api-monitor-title">
           <span class="am-pulse"></span>
           Backend API Requests
           <span class="api-monitor-host" id="apiMonitorHost"></span>
         </div>
-        <div class="api-monitor-actions">
+        <div class="api-monitor-actions" id="apiMonitorActions">
           <button class="api-monitor-btn" onclick="window.EchoApp.clearApiLog()">Clear</button>
           <button class="api-monitor-btn" onclick="window.EchoApp.toggleApiMonitor()">Hide</button>
         </div>
@@ -807,8 +811,18 @@
       </div>
       <div class="api-monitor-foot">
         <span id="apiMonitorSummary">0 requests</span>
-        <span>Click a row to copy as curl</span>
+        <span>Drag to move &middot; edges to resize &middot; click a row for curl</span>
       </div>
+      <!-- Resize grips. Real elements rather than the CSS `resize` property so
+           the window can be grown in any direction, not just bottom-right. -->
+      <div class="am-grip am-n" data-am-grip="n"></div>
+      <div class="am-grip am-s" data-am-grip="s"></div>
+      <div class="am-grip am-e" data-am-grip="e"></div>
+      <div class="am-grip am-w" data-am-grip="w"></div>
+      <div class="am-grip am-ne" data-am-grip="ne"></div>
+      <div class="am-grip am-nw" data-am-grip="nw"></div>
+      <div class="am-grip am-se" data-am-grip="se"></div>
+      <div class="am-grip am-sw" data-am-grip="sw"></div>
     </div>
     <button class="api-monitor-toggle" id="apiMonitorToggle" onclick="window.EchoApp.toggleApiMonitor()">
       <span class="am-pulse"></span>

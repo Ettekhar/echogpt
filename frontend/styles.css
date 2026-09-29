@@ -1867,20 +1867,81 @@ body {
 }
 .api-monitor-badge.is-error { background: #7f1d1d; color: #fecaca; }
 
+/* The panel is a free-floating window rather than a strip pinned to the corner.
+   Left/top/width/height are written by app.js (and restored from localStorage),
+   so the defaults here only apply on the very first paint. */
 .api-monitor-panel {
+  position: fixed;
+  left: 16px;
+  bottom: 52px;
   width: 460px;
-  max-width: calc(100vw - 24px);
   height: 340px;
+  min-width: 320px;
+  min-height: 180px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
   background: #0b1220;
   border: 1px solid #1e293b;
-  border-bottom: none;
-  border-radius: 0 12px 0 0;
-  box-shadow: 0 -8px 34px rgba(15, 23, 42, 0.4);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.5);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* While dragging, the panel must not animate or snap, and the text under the
+     cursor must not get selected - otherwise dragging highlights the page. */
+  will-change: left, top, width, height;
 }
 .api-monitor-panel.hidden { display: none; }
+
+/* Drag state. Set on <body> so the grab cursor and the selection kill apply
+   even when the pointer leaves the panel mid-drag. */
+body.am-dragging,
+body.am-dragging * {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+body.am-resizing,
+body.am-resizing * {
+  user-select: none !important;
+}
+
+.api-monitor-head {
+  cursor: grab;
+  touch-action: none;
+}
+
+/* Eight resize grips. Invisible hit areas rather than visible chrome, so the
+   window still looks like a panel. Corners are wider than edges because a
+   diagonal drag is the one people actually reach for. */
+.am-grip {
+  position: absolute;
+  z-index: 5;
+  touch-action: none;
+}
+.am-grip.am-n,
+.am-grip.am-s {
+  left: 10px; right: 10px; height: 6px;
+}
+.am-grip.am-e,
+.am-grip.am-w {
+  top: 10px; bottom: 10px; width: 6px;
+}
+.am-grip.am-n { top: -3px; cursor: ns-resize; }
+.am-grip.am-s { bottom: -3px; cursor: ns-resize; }
+.am-grip.am-w { left: -3px; cursor: ew-resize; }
+.am-grip.am-e { right: -3px; cursor: ew-resize; }
+
+.am-grip.am-ne,
+.am-grip.am-nw,
+.am-grip.am-se,
+.am-grip.am-sw {
+  width: 14px; height: 14px;
+}
+.am-grip.am-nw { top: -3px; left: -3px; cursor: nwse-resize; }
+.am-grip.am-ne { top: -3px; right: -3px; cursor: nesw-resize; }
+.am-grip.am-sw { bottom: -3px; left: -3px; cursor: nesw-resize; }
+.am-grip.am-se { bottom: -3px; right: -3px; cursor: nwse-resize; }
+
 
 .api-monitor-head {
   display: flex;

@@ -180,10 +180,208 @@
     renderApiLog();
   }
 
+  // ---------------------------------------------------------------------------
+  // Monitor window: drag to move, edges and corners to resize.
+  //
+  // The point is to let a reviewer put the request log wherever they want and
+  // make it as large as their screen allows, instead of it being stuck in a
+  // 460x340 corner box that covers the thing they are trying to click. Geometry
+  // is saved so a reload does not throw the layout away mid-demo.
+  // ---------------------------------------------------------------------------
+  const AM_MIN_W = 320;
+  const AM_MIN_H = 180;
+  // Vertical slack: the window may be slid most of the way off the bottom, but
+  // never so far that its header leaves the screen.
+  const AM_KEEP_VERTICAL = 44;
+  const AM_STORE = 'echogpt_api_monitor_window';
+  let _amWired = false;
+
+  function amDefaultRect() {
+    const width = Math.min(460, Math.max(AM_MIN_W, window.innerWidth - 32));
+    const height = Math.min(340, Math.max(AM_MIN_H, window.innerHeight - 100));
+    return { left: 16, top: Math.max(8, window.innerHeight - height - 52), width, height };
+  }
+
+  /**
+   * Keep the window usable: never smaller than the minimum, and never in a spot
+   * it cannot be dragged back out of.
+   *
+   * Horizontally the whole panel stays on screen, and that is deliberate rather
+   * than cautious. The drag handle is the header, the title sits at the header's
+   * left edge and the Clear/Hide buttons sit at its right edge - and the buttons
+   * deliberately refuse to start a drag, so clicking one still works. That means
+   * if the panel is allowed to hang off the left edge, the only strip still on
+   * screen is its right end, which is exactly the buttons. The window then
+   * cannot be moved with the mouse at all, only recovered by other means.
+   * Keeping it fully on screen means the title is always reachable.
+   */
+  function amClamp(rect) {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const width = Math.min(Math.max(rect.width, AM_MIN_W), Math.max(vw - 16, AM_MIN_W));
+    const height = Math.min(Math.max(rect.height, AM_MIN_H), Math.max(vh - 16, AM_MIN_H));
+    return {
+      left: Math.min(Math.max(rect.left, 8), Math.max(vw - width - 8, 8)),
+      top: Math.min(Math.max(rect.top, 8), Math.max(vh - AM_KEEP_VERTICAL, 8)),
+      width,
+      height,
+    };
+  }
+
+  function amApply(rect) {
+    const { panel } = apiMonitorEls();
+    if (!panel) return;
+    panel.style.left = `${Math.round(rect.left)}px`;
+    panel.style.top = `${Math.round(rect.top)}px`;
+    panel.style.width = `${Math.round(rect.width)}px`;
+    panel.style.height = `${Math.round(rect.height)}px`;
+    // The stylesheet anchors the panel with `bottom` for its first paint. Once
+    // JS owns the geometry, top and bottom together would stretch the window.
+    panel.style.bottom = 'auto';
+  }
+
+  /** Read the live geometry, so a drag starts from where the window actually is. */
+  function amLiveRect() {
+    const { panel } = apiMonitorEls();
+    const r = panel.getBoundingClientRect();
+    return { left: r.left, top: r.top, width: r.width, height: r.height };
+  }
+
+  function amSave() {
+    try {
+      localStorage.setItem(AM_STORE, JSON.stringify(amLiveRect()));
+    } catch (_) {
+      /* private mode / quota: the window still works, it just will not persist */
+    }
+  }
+
+  function amSaved() {
+    try {
+      const raw = localStorage.getItem(AM_STORE);
+      if (!raw) return null;
+      const v = JSON.parse(raw);
+      if (![v.left, v.top, v.width, v.height].every((n) => typeof n === 'number' && isFinite(n))) {
+        return null;
+      }
+      return v;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /** Put the window back where it belongs. Safe to call while the panel is hidden. */
+  function amRefresh() {
+    amApply(amClamp(amSaved() || amDefaultRect()));
+  }
+
+  /**
+   * Resize from a starting rect. The edge opposite the grip stays pinned, which
+   * is what makes dragging `w` or `n` feel like pulling a wall rather than
+   * growing a new box out of a fixed corner.
+   */
+  function amResized(start, grip, dx, dy) {
+    let { left, top, width, height } = start;
+    if (grip.includes('e')) width = Math.max(AM_MIN_W, start.width + dx);
+    if (grip.includes('s')) height = Math.max(AM_MIN_H, start.height + dy);
+    if (grip.includes('w')) {
+      // Pinned opposite edge: the right side stays put and the width changes.
+      const w = Math.max(AM_MIN_W, start.width - dx);
+      left = start.left + (start.width - w);
+      width = w;
+    }
+    if (grip.includes('n')) {
+      // Same idea vertically, so a corner grip moves two edges at once.
+      const h = Math.max(AM_MIN_H, start.height - dy);
+      top = start.top + (start.height - h);
+      height = h;
+    }
+    return { left, top, width, height };
+  }
+
+  function amInitWindow() {
+    const { panel } = apiMonitorEls();
+    if (!panel || _amWired) return;
+    _amWired = true;
+
+    const head = document.getElementById('apiMonitorHead');
+    const actions = document.getElementById('apiMonitorActions');
+
+    let mode = null;
+    let grip = '';
+    let startX = 0;
+    let startY = 0;
+    let startRect = null;
+    let moved = false;
+
+    const stop = () => {
+      window.removeEventListener('pointermove', onMove);
+      document.body.classList.remove('am-dragging', 'am-resizing');
+      if (moved) amSave();
+      mode = null;
+      moved = false;
+    };
+
+    const begin = (ev, m, g) => {
+      if (ev.button !== undefined && ev.button !== 0) return;
+      mode = m;
+      grip = g || '';
+      startX = ev.clientX;
+      startY = ev.clientY;
+      startRect = amLiveRect();
+      moved = false;
+      document.body.classList.add(m === 'move' ? 'am-dragging' : 'am-resizing');
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', stop, { once: true });
+      window.addEventListener('pointercancel', stop, { once: true });
+      ev.preventDefault();
+    };
+
+    function onMove(ev) {
+      if (!mode) return;
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      // A few pixels of slop so that clicking the header does not shift it.
+      if (!moved && Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
+      moved = true;
+      const next = mode === 'move'
+        ? { left: startRect.left + dx, top: startRect.top + dy, width: startRect.width, height: startRect.height }
+        : amResized(startRect, grip, dx, dy);
+      amApply(amClamp(next));
+    }
+
+    if (head) {
+      head.addEventListener('pointerdown', (ev) => {
+        // Clear and Hide sit inside the header; those clicks must still work.
+        if (actions && actions.contains(ev.target)) return;
+        begin(ev, 'move');
+      });
+      // Double-click the header to undo any dragging and resizing.
+      head.addEventListener('dblclick', () => {
+        amApply(amClamp(amDefaultRect()));
+        amSave();
+      });
+    }
+
+    panel.querySelectorAll('[data-am-grip]').forEach((el) => {
+      el.addEventListener('pointerdown', (ev) => begin(ev, 'resize', el.dataset.amGrip));
+    });
+
+    // A viewport that shrinks under a saved position would otherwise strand the
+    // window off-screen with no way to drag it back.
+    window.addEventListener('resize', () => {
+      if (!panel.classList.contains('hidden')) amApply(amClamp(amLiveRect()));
+    });
+
+    amRefresh();
+  }
+
   function toggleApiMonitor() {
     const { panel } = apiMonitorEls();
     if (!panel) return;
     panel.classList.toggle('hidden');
+    // Re-apply geometry on the way in: the viewport may have changed while the
+    // panel was closed, and a hidden panel has no rect to correct from.
+    if (!panel.classList.contains('hidden')) amRefresh();
     setApiMonitorHost();
   }
 
@@ -516,6 +714,7 @@
     // `GET /health 200` arriving, not an empty panel.
     const panel = document.getElementById('apiMonitorPanel');
     if (panel) panel.classList.remove('hidden');
+    amInitWindow();
     const monitorList = document.getElementById('apiMonitorList');
     if (monitorList) {
       monitorList.addEventListener('click', (ev) => {
