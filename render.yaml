@@ -7,13 +7,23 @@
 #
 # Secrets: fill in the `sync: false` values at deploy time, or set them in
 # the service's Environment tab. Never commit real values here.
+#
+# ---------------------------------------------------------------------------
+# Before using this, read DEPLOY.md. Two things matter:
+#
+#  1. A free Render *web service* idles out after ~15 minutes and cold-starts
+#     on the next request, so a reviewer opening the link first sees a 30-60s
+#     "API Offline" banner. `fly.toml` avoids that (see DEPLOY.md) and is the
+#     recommended path.
+#  2. Render's free Postgres expires after 30 days. If the demo has to outlive
+#     that, create a free database at neon.tech and set DATABASE_URL to it,
+#     deleting the `databases:` block below and the DATABASE_URL envVar here.
+# ---------------------------------------------------------------------------
 
 databases:
   - name: echogpt-db
     databaseName: echogpt
     user: echogpt
-    # Render free Postgres instances expire after 30 days. Use a paid instance
-    # (or move to Neon/Supabase) if the demo has to stay up longer.
     plan: free
     postgresMajorVersion: "16"
 
@@ -29,9 +39,9 @@ services:
     # `build:seed` is a build-time step: the seed is TypeScript and ts-node is a
     # devDependency, so it has to be compiled here rather than run at boot.
     buildCommand: npm ci && npx prisma generate && npm run build && npm run build:seed
-    # Migrations then seed on every deploy, so the two demo accounts and their
-    # Gemini provider always exist against a fresh or migrated database.
-    startCommand: npm run prisma:deploy && node dist-seed/prisma/seed.js && node dist/main
+    # Migrations then seed on every boot. Both are idempotent, so a restart or
+    # a scale-out converges to the intended state instead of corrupting it.
+    startCommand: npm run start:prod:full
     envVars:
       - key: NODE_ENV
         value: production

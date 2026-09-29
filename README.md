@@ -127,46 +127,59 @@ rewrites `config.js` and redeploys on its own. The frontend also carries an
 API-base failover list and an offline banner that names every host it tried,
 so a genuine outage is visible and diagnosable instead of a dead page.
 
-> This still needs the host machine to be on and connected. For a URL that
-> survives that, use the fixed-host deploy below.
+> **This still needs your PC to be on.** If you shut it down or restart, the API
+> and the tunnel are both gone and the demo breaks until you run `npm run host`
+> again. The Worker URL keeps loading, but every API call fails.
+>
+> For a link that survives that, deploy the API to a real host — see
+> [`DEPLOY.md`](DEPLOY.md). That is the only way the demo stops depending on
+> your laptop.
 
-### Deploying the API to a fixed host (Render)
+### Deploying the API to a real host
 
-[`render.yaml`](render.yaml) is a Render blueprint. Push the repo to GitHub,
-then in Render choose **New → Blueprint** and point it at the repository. Render
-creates the Postgres instance and the web service already wired together.
+Full step-by-step in **[`DEPLOY.md`](DEPLOY.md)**. The short version:
 
-Fill in the three `sync: false` values when prompted — Render shows them as
-required:
+```bash
+fly launch --no-deploy --copy-config --name echogpt-api
+fly secrets set DATABASE_URL="postgresql://..." JWT_ACCESS_SECRET="..." \
+  JWT_REFRESH_SECRET="..." PROVIDER_KEY_ENCRYPTION_SECRET="$(openssl rand -hex 32)" \
+  CORS_ORIGIN="https://echogpt.taion16240.workers.dev" GEMINI_API_KEY="..." \
+  SEED_ADMIN_PASSWORD="..." SEED_DEMO_PASSWORD="..."
+fly deploy
+```
 
-| Variable | Value |
-| --- | --- |
-| `PROVIDER_KEY_ENCRYPTION_SECRET` | 64 hex characters, e.g. `openssl rand -hex 32` |
-| `CORS_ORIGIN` | Your frontend origin, e.g. `https://echogpt.taion16240.workers.dev` |
-| `GEMINI_API_KEY` | From https://aistudio.google.com/app/apikey |
-
-`JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` are generated for you.
-
-Then point the frontend at the service URL and redeploy:
+Then point the frontend at the result and redeploy the Worker:
 
 ```js
 // frontend/config.js
-apiBase: 'https://echogpt-api.onrender.com/api/v1'
+apiBase: 'https://echogpt-api.fly.dev/api/v1',
+apiBaseFallbacks: [],   // the tunnel hostname is meaningless now
 ```
 
 ```bash
-npx wrangler deploy
+npm run deploy
 ```
 
-The blueprint's start command runs `prisma migrate deploy` and then the seed, so
-the two demo accounts and their Gemini provider exist on a fresh database without
-any manual step.
+`fly.toml`, `render.yaml` and `Dockerfile` are all committed, so Fly.io, Render
+and any Docker host are all one command away. The short version of which to pick:
 
-> Render's **free** Postgres instances expire after 30 days. For a demo that has
-> to stay up, use a paid instance or an external database (Neon, Supabase).
+| | Runs always | Free | Notes |
+| --- | --- | --- | --- |
+| **Fly.io** (`fly.toml`) | yes | yes | Recommended. Free allowance keeps a machine resident. |
+| Render (`render.yaml`) | no | yes | Free web service sleeps after ~15 min idle; free Postgres expires in 30 days. |
+| Any VPS (`Dockerfile`) | yes | — | Needs a server and a card. `--restart unless-stopped` survives reboots. |
 
-The same three-step flow works on Railway or Fly.io; only the build/start
-commands differ, and both are in [`Dockerfile`](Dockerfile) / `docker-compose.yml`.
+> **Why not Cloudflare Workers or Vercel for the API?** Both were considered and
+> neither fits. This app streams chat over Server-Sent Events and holds a
+> persistent Prisma connection to Postgres. Workers only get a few seconds of
+> execution and no TCP sockets; Vercel functions freeze between requests. The
+> *frontend* stays on Workers — that is a good fit for static files. Only the
+> backend has to move.
+
+`PROVIDER_KEY_ENCRYPTION_SECRET` must be **exactly 32 bytes of hex (64
+characters)**. A wrong length does not fail loudly — it silently breaks
+decryption of stored provider keys, so every health check starts reporting the
+providers as broken.
 
 ---
 

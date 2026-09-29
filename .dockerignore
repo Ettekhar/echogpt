@@ -1,0 +1,16 @@
+node_modules
+dist
+dist-seed
+.git
+.devserver.log
+.pgdata
+frontend
+test
+**/*.spec.ts
+**/*.test.ts
+*.md
+!README.md
+.env
+.env.*
+!.env.example
+scripts

@@ -1,0 +1,76 @@
+# Fly.io - a fixed public hostname for the API, so the demo survives your PC
+# being off. `fly deploy` then `fly secrets set ...` (see README).
+#
+# Why Fly rather than Render's free tier: a free Render web service idles out
+# after ~15 minutes of inactivity and cold-starts on the next request, which
+# means a reviewer opening the link first sees a 30-60 second "API Offline"
+# banner. Fly's free allowance runs a continuously-resident machine, so the
+# link just works.
+
+app = "echogpt-api"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  API_PREFIX = "api/v1"
+  PORT = "8080"
+  JWT_ACCESS_EXPIRES_IN = "15m"
+  JWT_REFRESH_EXPIRES_IN = "7d"
+  GEMINI_DEFAULT_MODEL = "gemini-3.8-flash"
+  FREE_PLAN_DAILY_LIMIT = "20"
+  PREMIUM_PLAN_DAILY_LIMIT = "1000"
+
+# Secrets are NOT set here on purpose - `fly secrets set` is the only place they
+# should be typed, so they cannot be committed by accident:
+#
+#   fly secrets set \
+#     DATABASE_URL="postgresql://..." \
+#     JWT_ACCESS_SECRET="..." \
+#     JWT_REFRESH_SECRET="..." \
+#     PROVIDER_KEY_ENCRYPTION_SECRET="<64 hex chars>" \
+#     CORS_ORIGIN="https://echogpt.taion16240.workers.dev" \
+#     GEMINI_API_KEY="..." \
+#     SEED_ADMIN_PASSWORD="..." \
+#     SEED_DEMO_PASSWORD="..."
+
+# Do NOT let Fly stop the machine for inactivity. This is the whole reason for
+# choosing Fly: an always-resident process means the reviewer's link is never
+# cold.
+auto_stop_machines = "off"
+auto_start_machines = true
+min_machines_running = 1
+
+[[vm]]
+  size = "shared-cpu-1x"
+  # 512MB is tight for Node plus a connection pool; 1GB leaves headroom.
+  memory = "1gb"
+
+[http_service]
+  internal_port = 8080
+  # SSE streaming chat needs connections held open, so the timeout has to be
+  # comfortably longer than a long Gemini response.
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+  # An LLM response can run for a while, especially with the model-fallback
+  # cascade. The default 60s would sever a legitimate stream mid-answer.
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    path = "/api/v1/health"
+    timeout = "5s"
+
+[[http_service.response_headers]]
+  for_headers = ["*"]
+  add_headers = { X-Content-Type-Options = "nosniff" }
