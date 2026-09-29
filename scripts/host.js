@@ -33,12 +33,14 @@ const LOCAL_API = 'http://localhost:3001/api/v1/health';
 const CONFIG = path.join(ROOT, 'frontend', 'config.js');
 const RECONNECT_DEADLINE = 90_000;
 const HEALTH_INTERVAL = 15_000;
+const BRINGUP_RETRIES = 5;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const say = (msg) => console.log(`[host] ${msg}`);
 
 let apiProc = null;
 let tunnelProc = null;
+let awakeProc = null;
 let currentUrl = null;
 
 async function waitForHealth(url, deadlineMs) {
@@ -202,8 +204,68 @@ function killTunnel() {
   tunnelProc = null;
 }
 
+/**
+ * Hold a "system required" power request for as long as this process lives.
+ *
+ * Over a multi-day demo the most likely accidental failure is not a crash - it
+ * is Windows deciding the machine has been idle and suspending it. That kills
+ * the API and the tunnel, and the watchdog never gets a chance to run because
+ * the whole machine is asleep.
+ *
+ * Implemented by keeping a child PowerShell process alive that holds
+ * SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED). Two properties
+ * make this the right shape:
+ *
+ *  1. It ties the power request to OUR process lifetime. When host.js exits -
+ *     including a hard kill - the child dies with it and Windows returns to
+ *     its normal sleep behaviour. Nothing is left globally disabled.
+ *  2. It needs no administrator rights, unlike `powercfg /change standby-timeout
+ *     0`, which mutates a machine-wide setting the user never asked for.
+ *
+ * Display sleep is deliberately left alone: blanking the screen is harmless,
+ * and forcing the monitor on is a good way to get a laptop closed.
+ */
+function holdSystemAwake() {
+  if (process.platform !== 'win32') return null;
+  try {
+    // -WindowStyle Hidden keeps a console flash out of the user's face. The
+    // loop re-asserts the request because some power policies expire it after
+    // a few minutes rather than holding until told otherwise.
+    const proc = spawn(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-WindowStyle',
+        'Hidden',
+        '-Command',
+        'Add-Type -Namespace W -Name P -MemberDefinition \'[DllImport("kernel32.dll")] public static extern uint SetThreadExecutionState(uint f);\'; ' +
+          'while ($true) { [W.P]::SetThreadExecutionState(0x80000001) | Out-Null; Start-Sleep -Seconds 20 }',
+      ],
+      { stdio: 'ignore', windowsHide: true, detached: false },
+    );
+    proc.on('error', () => {
+      say('WARNING: could not hold the system awake - Windows may still sleep the machine');
+    });
+    say('holding a system-awake request (releases when this process exits)');
+    return proc;
+  } catch (e) {
+    say(`WARNING: sleep guard unavailable (${e.message}) - keep the machine awake manually`);
+    return null;
+  }
+}
+
 function shutdown() {
   say('shutting down...');
+  if (awakeProc) {
+    // The power request dies with this child. Do not wait on it: it is in a
+    // 20s sleep loop and would stall shutdown for no benefit.
+    try {
+      awakeProc.kill();
+    } catch (_) {
+      /* already gone */
+    }
+  }
   killTunnel();
   if (apiProc && !apiProc.killed) {
     try {
@@ -218,11 +280,33 @@ function shutdown() {
 (async () => {
   console.log('\n[host] EchoGPT public host');
   console.log('[host] The Worker URL stays constant even when the tunnel restarts.\n');
-  try {
-    await startApi();
-    await bringUp();
-  } catch (e) {
-    console.error(`[host] FAILED: ${e.message}`);
+
+  awakeProc = holdSystemAwake();
+
+  // Retry the whole bring-up rather than exiting on the first failure. This
+  // matters specifically at boot: the machine has just logged on, the network
+  // is frequently not usable yet, and a quick tunnel opened too early dies
+  // immediately. Exiting there would leave the demo down until a human noticed
+  // and re-ran the command - which is exactly the failure this script exists to
+  // prevent.
+  let up = false;
+  for (let attempt = 1; attempt <= BRINGUP_RETRIES && !up; attempt++) {
+    try {
+      await startApi();
+      await bringUp();
+      up = true;
+    } catch (e) {
+      console.error(`[host] bring-up attempt ${attempt}/${BRINGUP_RETRIES} failed: ${e.message}`);
+      if (attempt < BRINGUP_RETRIES) {
+        const waitMs = Math.min(60_000, 10_000 * attempt);
+        console.error(`[host] retrying in ${waitMs / 1000}s...`);
+        await sleep(waitMs);
+      }
+    }
+  }
+  if (!up) {
+    console.error('[host] FAILED: could not bring the demo up. See .devserver.log and');
+    console.error('[host] the cloudflared log for the underlying error.');
     process.exit(1);
   }
 

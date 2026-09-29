@@ -5,6 +5,52 @@ Production-oriented backend for the **EchoGPT** Chrome Extension (multi-AI chat)
 > Built as the technical assignment for the AppifyDevs Backend Software Engineering Internship.
 > Complete implementation covering all 7 core modules, 4 bonus features, and interactive documentation.
 
+## Run it
+
+```bash
+npm install
+npm run demo
+```
+
+That is the entire setup. No `.env` to write, no database to provision, no API key
+to obtain, no account to create. `npm run demo` generates a working `.env` with
+randomly generated secrets, starts an embedded PostgreSQL, applies migrations,
+seeds the demo accounts, serves the UI, and opens your browser.
+
+Then open **<http://localhost:3001/>** and sign in:
+
+| Account | Email | Password |
+| --- | --- | --- |
+| Admin (full admin panel) | `admin@echogpt.app` | `ChangeMe123!` |
+| Demo (regular user) | `demo@echogpt.app` | `DemoUser123!` |
+
+Swagger is at <http://localhost:3001/api/v1/docs>.
+
+### About the AI key
+
+Everything works without an API key **except live AI replies** — auth, chat history,
+conversations, subscriptions, the admin panel and the dashboard all function, and
+the chat panel tells you what is missing rather than failing silently. The app does
+not refuse to boot without a key, because a reviewer without one should see a
+working product with one feature disabled, not a crash.
+
+To enable live replies, get a free key at
+[aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey), then:
+
+```bash
+GEMINI_API_KEY=<your key> npm run demo     # Windows PowerShell: $env:GEMINI_API_KEY="<key>"; npm run demo
+```
+
+It is written into the generated `.env` so it persists for later runs.
+
+### Why the UI needs no configuration
+
+The backend serves the `frontend/` directory as static assets, so the page and the
+API share one origin. There is no CORS setup, no tunnel, and no second deploy: the
+frontend discovers the API from its own origin. That is why `npm run demo` is enough
+— a separate frontend host is only needed for a *public* demo URL, which is a
+different concern (see [`DEPLOY.md`](DEPLOY.md)).
+
 ## Stack
 
 - **NestJS 10** (TypeScript, modular architecture)
@@ -49,10 +95,14 @@ opened the page. Sign in as the admin account explicitly to reach it.
 
 ---
 
-## ⚠️ Pointing the hosted frontend at a backend
+## ⚠️ Running the public demo URL
 
-The demo frontend is a static site and the API is a Node + Postgres service, so
-they deploy separately: the frontend goes to Cloudflare, the API runs on a host
+`npm run demo` serves everything from one origin on localhost, which is all a
+reviewer needs locally. A **public** URL is a separate problem, because the API is
+a Node + Postgres service that has to run somewhere continuously.
+
+For a URL that works from someone else's machine, see [`DEPLOY.md`](DEPLOY.md).
+The short version: the frontend goes to Cloudflare, the API runs on a host
 that supports Node and Postgres.
 
 `localhost` in a browser means **the visitor's own machine**. A page served from

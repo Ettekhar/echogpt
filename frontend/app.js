@@ -13,13 +13,25 @@
     const saved = localStorage.getItem('echogpt_api_base');
     if (saved) return saved;
 
+    // If this page is being served from a local address, the API is almost
+    // certainly the server that served it - src/main.ts mounts frontend/ as
+    // static assets. Prefer same-origin in that case.
+    //
+    // This has to be checked BEFORE the configured apiBase, and the reason is
+    // that config.js carries whatever public URL the demo was last published
+    // with. A quick-tunnel hostname goes stale the moment the tunnel restarts,
+    // and a freshly cloned repo ships that stale value. Trusting it first meant
+    // a local run pointed at a dead tunnel instead of the working API on the
+    // same origin, which looked exactly like "the demo does not connect".
+    const host = window.location.hostname;
+    const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '::1';
+    if (isLocal) {
+      return `${window.location.origin}/api/v1`;
+    }
+
     const configured = window.ECHOGPT_CONFIG && window.ECHOGPT_CONFIG.apiBase;
     if (configured) return configured.replace(/\/+$/, '');
 
-    // Served by the API itself (npm run dev) - no CORS hop needed.
-    if (window.location.port === '3001' || window.location.port === '3000') {
-      return `${window.location.origin}/api/v1`;
-    }
     return 'http://localhost:3001/api/v1';
   }
 
