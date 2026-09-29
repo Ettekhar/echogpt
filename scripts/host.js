@@ -33,7 +33,15 @@ const LOCAL_API = 'http://localhost:3001/api/v1/health';
 const CONFIG = path.join(ROOT, 'frontend', 'config.js');
 const RECONNECT_DEADLINE = 90_000;
 const HEALTH_INTERVAL = 15_000;
-const BRINGUP_RETRIES = 5;
+// How long to keep trying before giving up on the first tunnel, as a wall-clock
+// budget rather than an attempt count. Cloudflare refuses to issue quick
+// tunnels for a while once one machine has asked for too many (HTTP 429), and
+// that clears by itself in minutes. An attempt cap gave up after 100s - well
+// before the limit expired - and then exited, which left the demo down until a
+// human noticed and re-ran the command. The whole point of this script is that
+// the demo recovers without anyone watching, so a transient refusal has to be
+// waited out rather than treated as fatal.
+const BRINGUP_BUDGET_MS = 25 * 60_000;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const say = (msg) => console.log(`[host] ${msg}`);
@@ -314,23 +322,33 @@ function shutdown() {
   // and re-ran the command - which is exactly the failure this script exists to
   // prevent.
   let up = false;
-  for (let attempt = 1; attempt <= BRINGUP_RETRIES && !up; attempt++) {
+  const giveUpAt = Date.now() + BRINGUP_BUDGET_MS;
+  for (let attempt = 1; !up; attempt++) {
     try {
       await startApi();
       await bringUp();
       up = true;
     } catch (e) {
-      console.error(`[host] bring-up attempt ${attempt}/${BRINGUP_RETRIES} failed: ${e.message}`);
-      if (attempt < BRINGUP_RETRIES) {
-        const waitMs = Math.min(60_000, 10_000 * attempt);
-        console.error(`[host] retrying in ${waitMs / 1000}s...`);
-        await sleep(waitMs);
+      const left = giveUpAt - Date.now();
+      const rateLimited = /429|refused to issue/i.test(e.message);
+      if (left <= 0) {
+        console.error(`[host] still not up after ${BRINGUP_BUDGET_MS / 60_000} minutes: ${e.message}`);
+        break;
       }
+      console.error(`[host] bring-up attempt ${attempt} failed: ${e.message}`);
+      // Wait longer the more it has failed, but never past the budget, so a
+      // refusal that clears in three minutes is simply slept through.
+      const waitMs = Math.min(left, Math.min(120_000, 15_000 * attempt));
+      console.error(
+        `[host] ${rateLimited ? 'rate limited, ' : ''}retrying in ${Math.round(waitMs / 1000)}s ` +
+          `(${(BRINGUP_BUDGET_MS - left) / 60_000 < 1 ? 'under a minute' : Math.ceil((BRINGUP_BUDGET_MS - left) / 60_000) + 'm into the budget'} used)`,
+      );
+      await sleep(waitMs);
     }
   }
   if (!up) {
-    console.error('[host] FAILED: could not bring the demo up. See .devserver.log and');
-    console.error('[host] the cloudflared log for the underlying error.');
+    console.error('[host] FAILED: could not bring the demo up after a long wait. See');
+    console.error('[host] .devserver.log and the cloudflared log for the underlying error.');
     process.exit(1);
   }
 
