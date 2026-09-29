@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProviderDto } from './dto/create-provider.dto';
 import { UpdateProviderDto } from './dto/update-provider.dto';
@@ -179,7 +179,20 @@ export class ProvidersService {
   async healthCheck(userId: string, id: string) {
     const provider = await this.getOwnedOrThrow(userId, id);
     const adapter = this.adapterFactory.get(provider.name as any);
-    const apiKey = decryptSecret(provider.encryptedApiKey);
+    let apiKey: string;
+    try {
+      apiKey = decryptSecret(provider.encryptedApiKey);
+    } catch {
+      // Report the stored provider as unhealthy instead of failing the whole
+      // request, so the AI Providers screen can show the state of each entry.
+      await this.prisma.aiProvider.update({
+        where: { id },
+        data: { lastHealthCheck: new Date(), lastHealthy: false },
+      });
+      throw new ServiceUnavailableException(
+        'The stored API key for this provider cannot be decrypted. Re-enter the key, or restore the PROVIDER_KEY_ENCRYPTION_SECRET these keys were saved with.',
+      );
+    }
     const result: HealthCheckResult = await adapter.healthCheck(
       apiKey,
       provider.baseUrl || undefined,

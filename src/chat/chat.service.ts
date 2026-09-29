@@ -62,7 +62,7 @@ export class ChatService {
     });
 
     const adapter = this.adapterFactory.get(provider.name as any);
-    const apiKey = decryptSecret(provider.encryptedApiKey);
+    const apiKey = this.readApiKey(provider);
 
     let result;
     try {
@@ -151,7 +151,16 @@ export class ChatService {
     });
 
     const adapter = this.adapterFactory.get(provider.name as any);
-    const apiKey = decryptSecret(provider.encryptedApiKey);
+    let apiKey: string;
+    try {
+      apiKey = this.readApiKey(provider);
+    } catch (err: any) {
+      // A generator that throws before its first yield breaks the SSE response
+      // instead of delivering a readable error, so report it the same way the
+      // catch below reports provider failures.
+      yield { event: 'error', data: { message: err.message } };
+      return;
+    }
 
     let fullText = '';
     try {
@@ -241,5 +250,18 @@ export class ChatService {
       throw new NotFoundException('Conversation not found');
     }
     return conversation;
+  }
+
+  private readApiKey(provider: { id?: string; encryptedApiKey: string }): string {
+    try {
+      return decryptSecret(provider.encryptedApiKey);
+    } catch (err: any) {
+      this.logger.warn(
+        `Failed to decrypt provider key (${provider.id ?? 'unknown'}): ${err.message}`,
+      );
+      throw new ServiceUnavailableException(
+        'The configured AI provider key cannot be decrypted. You may need to re-enter it in the AI Providers screen.',
+      );
+    }
   }
 }

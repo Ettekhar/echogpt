@@ -40,6 +40,36 @@ describe('crypto.util', () => {
     expect(decryptSecret(encrypted)).toEqual('hello world');
   });
 
+  // A database created by one machine and then run by another (a shared .pgdata,
+  // a restored dump) holds keys encrypted under a secret the new machine does not
+  // have. OpenSSL reports that as "Unsupported state or unable to authenticate
+  // data", which reached the user as a bare 500. These tests pin the message that
+  // actually tells them what to do.
+  describe('undecryptable payloads', () => {
+    it('explains a secret mismatch instead of leaking the OpenSSL error', () => {
+      const encrypted = encryptSecret('sk-secret');
+      process.env.PROVIDER_KEY_ENCRYPTION_SECRET = 'b'.repeat(64);
+
+      expect(() => decryptSecret(encrypted)).toThrow(/PROVIDER_KEY_ENCRYPTION_SECRET/);
+      expect(() => decryptSecret(encrypted)).not.toThrow(/Unsupported state/);
+    });
+
+    it('reports tampered ciphertext rather than returning garbage', () => {
+      const encrypted = encryptSecret('sk-secret');
+      const [iv, tag, data] = encrypted.split(':');
+      const flipped = (data[0] === 'a' ? 'b' : 'a') + data.slice(1);
+
+      expect(() => decryptSecret(`${iv}:${tag}:${flipped}`)).toThrow(
+        /PROVIDER_KEY_ENCRYPTION_SECRET/,
+      );
+    });
+
+    it('rejects a malformed payload with a re-add-the-key message', () => {
+      expect(() => decryptSecret('not-even-close-to-valid')).toThrow(/Re-add the API key/);
+      expect(() => decryptSecret('')).toThrow(/Re-add the API key/);
+    });
+  });
+
   describe('maskSecret', () => {
     it('masks the middle of a long secret', () => {
       expect(maskSecret('sk-abcdefghijklmnopwxyz')).toBe('sk-a...wxyz');

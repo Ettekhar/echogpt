@@ -123,6 +123,111 @@ async function main() {
       console.log(`Note: could not seed Gemini provider for ${label}:`, err.message);
     }
   }
+
+  await seedSampleActivity(admin, demo);
+}
+
+/**
+ * Optional sample activity, so a fresh install does not look abandoned.
+ *
+ * A brand-new clone has exactly two users and zero conversations, which makes
+ * the admin dashboard indistinguishable from a broken one: "Total Users 2", no
+ * charts, empty chat history. Someone reviewing the work cannot tell a working
+ * dashboard from a dead one, so this gives the charts something real to plot.
+ *
+ * Opt out with SEED_DEMO_DATA=false for a genuinely empty database. The rows are
+ * deterministic (fixed text, backdated timestamps) and it refuses to run when
+ * any conversation already exists, so re-seeding never duplicates or inflates
+ * counts. Timestamps are backdated across the last fortnight so the daily usage
+ * chart has a spread rather than a single spike today.
+ */
+async function seedSampleActivity(
+  admin: { id: string },
+  demo: { id: string },
+) {
+  if (String(process.env.SEED_DEMO_DATA).toLowerCase() === 'false') {
+    console.log('Skipping sample activity (SEED_DEMO_DATA=false).');
+    return;
+  }
+
+  if ((await prisma.conversation.count()) > 0) {
+    console.log('Sample activity already present - leaving existing conversations alone.');
+    return;
+  }
+
+  const DAY = 24 * 60 * 60 * 1000;
+  const now = Date.now();
+
+  const samples = [
+    {
+      owner: demo,
+      title: 'Explain quantum computing simply',
+      ask: 'Explain quantum computing in simple terms.',
+      reply:
+        'A normal bit is either 0 or 1. A qubit can be in a combination of both until it is measured, which is what lets a quantum computer explore many possibilities at once.',
+    },
+    {
+      owner: demo,
+      title: 'Sci-fi recommendations',
+      ask: 'Recommend 5 great sci-fi movies.',
+      reply:
+        'Arrival, Blade Runner 2049, The Expanse, Interstellar and Solaris are five well-regarded starting points.',
+    },
+    {
+      owner: admin,
+      title: 'Current rate limits',
+      ask: 'What are the current rate limits?',
+      reply:
+        'Free plans get 20 AI requests per day and premium gets 1000. The global throttle allows 100 requests per 60 seconds.',
+    },
+  ];
+
+  for (const [i, s] of samples.entries()) {
+    // Backdate across the last two weeks so the dashboard's daily chart shows
+    // a spread of activity instead of a single bar.
+    const at = new Date(now - (samples.length - i) * 3 * DAY);
+
+    await prisma.conversation.create({
+      data: {
+        userId: s.owner.id,
+        title: s.title,
+        createdAt: at,
+        messages: {
+          create: [
+            { role: 'USER', content: s.ask, createdAt: at },
+            {
+              role: 'ASSISTANT',
+              content: s.reply,
+              tokensUsed: 64,
+              createdAt: at,
+            },
+          ],
+        },
+      },
+    });
+
+    await prisma.apiUsageLog.create({
+      data: {
+        userId: s.owner.id,
+        method: 'POST',
+        path: '/api/v1/chat/messages',
+        statusCode: 200,
+        durationMs: 820,
+        createdAt: at,
+      },
+    });
+
+    await prisma.webSearch.create({
+      data: {
+        userId: s.owner.id,
+        query: 'quantum computing explained simply',
+        cached: false,
+        createdAt: at,
+      },
+    });
+
+    console.log(`Seeded sample conversation "${s.title}".`);
+  }
 }
 
 main()
