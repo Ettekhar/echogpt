@@ -1905,9 +1905,16 @@ body.am-resizing * {
   user-select: none !important;
 }
 
-.api-monitor-head {
+/* Both the header and the footer drag the window, and neither may select its
+   text while doing so. user-select is the reason a drag can start here at all:
+   the drag deliberately does not call preventDefault(), because suppressing the
+   compatibility mouse events would also stop the browser delivering the click
+   that makes the Clear and Hide buttons work. */
+.api-monitor-head,
+.api-monitor-foot {
   cursor: grab;
   touch-action: none;
+  user-select: none;
 }
 
 /* Eight resize grips. Invisible hit areas rather than visible chrome, so the

@@ -53,13 +53,17 @@ backend, live, as it happens.
 ### The API monitor
 
 Open it from the **API Monitor** tab at the bottom-left. It is a floating window:
-drag the header to move it, drag any edge or corner to resize it, and
-double-click the header to snap it back to the default. It remembers where you
-put it. Click any row to copy that request as a `curl` command, including the
-auth header and body.
+drag the header **or the footer** to move it, drag any edge or corner to resize
+it, and double-click either bar to snap it back to the default. It remembers where
+you put it.
 
-It exists so the API can be seen working rather than taken on trust — you can
-watch `GET /health 200` land as the page loads.
+It is also allowed to hang off the edge of the browser — park it mostly to the
+left or below the fold so it stops covering the part of the app you are trying to
+click. A strip of it always stays on screen so you can always drag it back.
+
+Click any row to copy that request as a `curl` command, including the auth header
+and body. It exists so the API can be seen working rather than taken on trust —
+you can watch `GET /health 200` land as the page loads.
 
 ### About the AI key
 

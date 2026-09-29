@@ -190,9 +190,11 @@
   // ---------------------------------------------------------------------------
   const AM_MIN_W = 320;
   const AM_MIN_H = 180;
-  // Vertical slack: the window may be slid most of the way off the bottom, but
-  // never so far that its header leaves the screen.
-  const AM_KEEP_VERTICAL = 44;
+  // The window may hang off any edge of the browser, the way a desktop window
+  // can hang off the edge of a screen. It may not go *entirely* off, though:
+  // the only drag handles are the header and the footer, so a strip of the
+  // panel has to stay on screen for there to be anything to grab.
+  const AM_VISIBLE = 32;
   const AM_STORE = 'echogpt_api_monitor_window';
   let _amWired = false;
 
@@ -203,17 +205,20 @@
   }
 
   /**
-   * Keep the window usable: never smaller than the minimum, and never in a spot
-   * it cannot be dragged back out of.
+   * Keep the window draggable-back, and otherwise get out of the way.
    *
-   * Horizontally the whole panel stays on screen, and that is deliberate rather
-   * than cautious. The drag handle is the header, the title sits at the header's
-   * left edge and the Clear/Hide buttons sit at its right edge - and the buttons
-   * deliberately refuse to start a drag, so clicking one still works. That means
-   * if the panel is allowed to hang off the left edge, the only strip still on
-   * screen is its right end, which is exactly the buttons. The window then
-   * cannot be moved with the mouse at all, only recovered by other means.
-   * Keeping it fully on screen means the title is always reachable.
+   * Left, right, top and bottom are all free: the panel can be parked mostly or
+   * entirely past an edge, so it never sits on top of the part of the app you
+   * are trying to click. The single rule is that `AM_VISIBLE` pixels of it stay
+   * on screen.
+   *
+   * That rule is only safe because of two things that are easy to get wrong. The
+   * footer is a drag handle as well as the header, because a panel hung off the
+   * top of the browser shows nothing but its footer. And the header's buttons do
+   * *not* refuse to start a drag, because a panel hung off the left edge shows
+   * nothing but the right-hand end of the header - which is exactly where Clear
+   * and Hide sit. Either one of those missing and the window can be moved out
+   * of reach but never moved back.
    */
   function amClamp(rect) {
     const vw = window.innerWidth;
@@ -221,8 +226,8 @@
     const width = Math.min(Math.max(rect.width, AM_MIN_W), Math.max(vw - 16, AM_MIN_W));
     const height = Math.min(Math.max(rect.height, AM_MIN_H), Math.max(vh - 16, AM_MIN_H));
     return {
-      left: Math.min(Math.max(rect.left, 8), Math.max(vw - width - 8, 8)),
-      top: Math.min(Math.max(rect.top, 8), Math.max(vh - AM_KEEP_VERTICAL, 8)),
+      left: Math.min(Math.max(rect.left, AM_VISIBLE - width), vw - AM_VISIBLE),
+      top: Math.min(Math.max(rect.top, AM_VISIBLE - height), vh - AM_VISIBLE),
       width,
       height,
     };
@@ -303,8 +308,7 @@
     if (!panel || _amWired) return;
     _amWired = true;
 
-    const head = document.getElementById('apiMonitorHead');
-    const actions = document.getElementById('apiMonitorActions');
+    const handles = Array.prototype.slice.call(panel.querySelectorAll('[data-am-drag]'));
 
     let mode = null;
     let grip = '';
@@ -312,10 +316,16 @@
     let startY = 0;
     let startRect = null;
     let moved = false;
+    let swallowClick = false;
 
     const stop = () => {
       window.removeEventListener('pointermove', onMove);
       document.body.classList.remove('am-dragging', 'am-resizing');
+      // A drag that actually moved the window must not also press whatever was
+      // under the pointer - otherwise grabbing the window by its Hide button
+      // hides the panel. The click is dispatched after pointerup, so flagging it
+      // here is early enough to catch it.
+      swallowClick = moved;
       if (moved) amSave();
       mode = null;
       moved = false;
@@ -329,11 +339,16 @@
       startY = ev.clientY;
       startRect = amLiveRect();
       moved = false;
+      swallowClick = false;
       document.body.classList.add(m === 'move' ? 'am-dragging' : 'am-resizing');
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', stop, { once: true });
       window.addEventListener('pointercancel', stop, { once: true });
-      ev.preventDefault();
+      // preventDefault() is skipped for a move on purpose. It suppresses the
+      // compatibility mouse events, which would take the click on Clear and Hide
+      // down with it. Text selection is stopped in CSS instead, and the grips
+      // have nothing to lose.
+      if (m === 'resize') ev.preventDefault();
     };
 
     function onMove(ev) {
@@ -349,18 +364,36 @@
       amApply(amClamp(next));
     }
 
-    if (head) {
-      head.addEventListener('pointerdown', (ev) => {
-        // Clear and Hide sit inside the header; those clicks must still work.
-        if (actions && actions.contains(ev.target)) return;
-        begin(ev, 'move');
-      });
-      // Double-click the header to undo any dragging and resizing.
-      head.addEventListener('dblclick', () => {
+    // The button rows live inside the drag handles, so the handles cannot simply
+    // ignore pointerdowns that land on them - a window hung off the left edge is
+    // dragged back by the buttons, because that is all that is left on screen.
+    // Instead the click is dropped only when the drag really moved.
+    panel.addEventListener('click', (ev) => {
+      if (!swallowClick) return;
+      swallowClick = false;
+      ev.stopPropagation();
+      ev.preventDefault();
+    }, true);
+
+    // Any press inside the panel re-arms clicks, including on the request list,
+    // which is not a handle and so never reaches begin(). Without this a drag
+    // that ended off the panel - where the browser dispatches its click to some
+    // ancestor outside, so the swallower above never sees it - would leave the
+    // flag set and eat the next unrelated click.
+    panel.addEventListener('pointerdown', () => {
+      swallowClick = false;
+    }, true);
+
+    handles.forEach((el) => {
+      el.addEventListener('pointerdown', (ev) => begin(ev, 'move'));
+      // Double-click either bar to undo any dragging and resizing.
+      el.addEventListener('dblclick', (ev) => {
+        // Not on a button: double-clicking Hide should hide, not also reset.
+        if (ev.target && ev.target.closest && ev.target.closest('button')) return;
         amApply(amClamp(amDefaultRect()));
         amSave();
       });
-    }
+    });
 
     panel.querySelectorAll('[data-am-grip]').forEach((el) => {
       el.addEventListener('pointerdown', (ev) => begin(ev, 'resize', el.dataset.amGrip));
