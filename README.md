@@ -61,6 +61,10 @@ It is also allowed to hang off the edge of the browser — park it mostly to the
 left or below the fold so it stops covering the part of the app you are trying to
 click. A strip of it always stays on screen so you can always drag it back.
 
+**Pop out** detaches it into a window of its own, the way devtools undock: it
+fills that window, and you drag the window to any monitor you like. **Dock** puts
+it back, and so does simply closing the window.
+
 Click any row to copy that request as a `curl` command, including the auth header
 and body. It exists so the API can be seen working rather than taken on trust —
 you can watch `GET /health 200` land as the page loads.

@@ -80,26 +80,82 @@
   const apiLog = [];
   const API_LOG_MAX = 60;
   let _apiLogSeq = 0;
-  let _apiMonitorHost = null;
+
+  // ==========================================================================
+  // WHICH DOCUMENT THE CONSOLE IS IN
+  //
+  // The console can be docked in this page or floating in a window of its own,
+  // the way devtools can be undocked. A second window is a second document with
+  // its own viewport, its own copy of every element and its own user activation,
+  // so nothing in this section may reach for the global `document` or `window`:
+  // a lookup there silently returns null once the console has been moved out, and
+  // the log would stop updating in the very window the user is watching.
+  //
+  // Only the two elements that belong to the *page* - the tab button and its
+  // request counter - are still looked up in the global document, because the
+  // counter has to keep ticking while the console is somewhere else.
+  // ==========================================================================
+  const AM_STORE = 'echogpt_api_monitor_window';
+  const AM_FLOAT_FLAG = 'echogpt_api_monitor_floating';
+  const AM_FLOAT_NAME = 'echogpt_api_console';
+
+  let _amDocked = null;   // the panel as it lives in the page
+  let _amRoot = null;     // the panel currently on screen
+  let _amFloatWin = null; // its window, while floating
+
+  function amDockedPanel() {
+    if (!_amDocked) _amDocked = document.getElementById('apiMonitorPanel');
+    return _amDocked;
+  }
+
+  function amRoot() {
+    return _amRoot || amDockedPanel();
+  }
+
+  function amIsFloating() {
+    const p = _amRoot;
+    return !!(p && p.ownerDocument && p.ownerDocument !== document);
+  }
+
+  function amDoc() {
+    const p = amRoot();
+    return (p && p.ownerDocument) || document;
+  }
+
+  function amWin() {
+    return amDoc().defaultView || window;
+  }
+
+  function amFind(id) {
+    const p = amRoot();
+    return p ? p.querySelector('#' + id) : null;
+  }
+
+  function amViewport() {
+    const w = amWin();
+    return { w: w.innerWidth || 0, h: w.innerHeight || 0 };
+  }
 
   function apiMonitorEls() {
     return {
-      list: document.getElementById('apiMonitorList'),
+      panel: amRoot(),
+      list: amFind('apiMonitorList'),
+      summary: amFind('apiMonitorSummary'),
+      host: amFind('apiMonitorHost'),
+      // Page furniture, not console furniture: always resolved in the page.
       badge: document.getElementById('apiMonitorBadge'),
-      summary: document.getElementById('apiMonitorSummary'),
       toggle: document.getElementById('apiMonitorToggle'),
-      panel: document.getElementById('apiMonitorPanel'),
-      host: document.getElementById('apiMonitorHost'),
     };
   }
 
   function setApiMonitorHost() {
-    if (!_apiMonitorHost) _apiMonitorHost = apiMonitorEls().host;
-    if (_apiMonitorHost) {
-      try {
-        _apiMonitorHost.textContent = state.apiBase.replace(/^https?:\/\//, '').replace(/\/api\/v1\/?$/, '');
-      } catch (_) { /* ignore */ }
-    }
+    // Deliberately not cached: the element belongs to whichever document the
+    // console is in, and that changes when it is popped out and docked again.
+    const host = amFind('apiMonitorHost');
+    if (!host) return;
+    try {
+      host.textContent = state.apiBase.replace(/^https?:\/\//, '').replace(/\/api\/v1\/?$/, '');
+    } catch (_) { /* ignore */ }
   }
 
   function renderApiLog() {
@@ -195,13 +251,14 @@
   // the only drag handles are the header and the footer, so a strip of the
   // panel has to stay on screen for there to be anything to grab.
   const AM_VISIBLE = 32;
-  const AM_STORE = 'echogpt_api_monitor_window';
-  let _amWired = false;
 
   function amDefaultRect() {
-    const width = Math.min(460, Math.max(AM_MIN_W, window.innerWidth - 32));
-    const height = Math.min(340, Math.max(AM_MIN_H, window.innerHeight - 100));
-    return { left: 16, top: Math.max(8, window.innerHeight - height - 52), width, height };
+    // A console in a window of its own has no default rect to compute: CSS sizes
+    // it to that window, so this only ever runs for the docked panel.
+    const v = amViewport();
+    const width = Math.min(460, Math.max(AM_MIN_W, v.w - 32));
+    const height = Math.min(340, Math.max(AM_MIN_H, v.h - 100));
+    return { left: 16, top: Math.max(8, v.h - height - 52), width, height };
   }
 
   /**
@@ -221,21 +278,28 @@
    * of reach but never moved back.
    */
   function amClamp(rect) {
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
+    const v = amViewport();
+    const vw = v.w;
+    const vh = v.h;
     const width = Math.min(Math.max(rect.width, AM_MIN_W), Math.max(vw - 16, AM_MIN_W));
     const height = Math.min(Math.max(rect.height, AM_MIN_H), Math.max(vh - 16, AM_MIN_H));
     return {
-      left: Math.min(Math.max(rect.left, AM_VISIBLE - width), vw - AM_VISIBLE),
-      top: Math.min(Math.max(rect.top, AM_VISIBLE - height), vh - AM_VISIBLE),
+      left: Math.min(Math.max(rect.left, AM_VISIBLE - width), Math.max(vw - AM_VISIBLE, AM_VISIBLE - width)),
+      top: Math.min(Math.max(rect.top, AM_VISIBLE - height), Math.max(vh - AM_VISIBLE, AM_VISIBLE - height)),
       width,
       height,
     };
   }
 
   function amApply(rect) {
-    const { panel } = apiMonitorEls();
+    const panel = amRoot();
     if (!panel) return;
+    // While floating there is nothing to place. The panel is the whole content of
+    // a window dedicated to it, so CSS fills that window and the window's own
+    // edges are the size control. Measuring here instead would fight the
+    // stylesheet, and would read a zero-sized viewport if it ran during window
+    // creation - which is exactly when this first runs.
+    if (amIsFloating()) return;
     panel.style.left = `${Math.round(rect.left)}px`;
     panel.style.top = `${Math.round(rect.top)}px`;
     panel.style.width = `${Math.round(rect.width)}px`;
@@ -247,7 +311,8 @@
 
   /** Read the live geometry, so a drag starts from where the window actually is. */
   function amLiveRect() {
-    const { panel } = apiMonitorEls();
+    const panel = amRoot();
+    if (!panel) return { left: 0, top: 0, width: AM_MIN_W, height: AM_MIN_H };
     const r = panel.getBoundingClientRect();
     return { left: r.left, top: r.top, width: r.width, height: r.height };
   }
@@ -271,6 +336,21 @@
       return v;
     } catch (_) {
       return null;
+    }
+  }
+
+  function amSetFlag(on) {
+    try {
+      if (on) localStorage.setItem(AM_FLOAT_FLAG, '1');
+      else localStorage.removeItem(AM_FLOAT_FLAG);
+    } catch (_) { /* ignore */ }
+  }
+
+  function amReadFlag() {
+    try {
+      return localStorage.getItem(AM_FLOAT_FLAG) === '1';
+    } catch (_) {
+      return false;
     }
   }
 
@@ -303,12 +383,30 @@
     return { left, top, width, height };
   }
 
-  function amInitWindow() {
-    const { panel } = apiMonitorEls();
-    if (!panel || _amWired) return;
-    _amWired = true;
+  /**
+   * Bind a console panel: dragging, resizing, and its three buttons.
+   *
+   * Takes the panel rather than using the global one, because the same markup
+   * exists twice once the console is floating - once docked and hidden in the
+   * page, once cloned into its own window. Each is wired independently and the
+   * guards below make only the one actually on screen respond, so a drag that
+   * started in one cannot be continued in the other.
+   */
+  // A WeakSet rather than a data attribute: the floating console is a clone of
+  // the docked panel, and a clone copies the attribute, which would make the
+  // panel look already wired and leave the console window with dead buttons.
+  const _amWired = new WeakSet();
 
+  function amWirePanel(panel) {
+    if (!panel || _amWired.has(panel)) return;
+    _amWired.add(panel);
+
+    // Everything a drag needs is bound to the panel's own window and document,
+    // not the page's: a pointermove inside a popup never reaches the opener.
+    const win = panel.ownerDocument.defaultView || window;
+    const doc = panel.ownerDocument;
     const handles = Array.prototype.slice.call(panel.querySelectorAll('[data-am-drag]'));
+    const isActive = () => amRoot() === panel;
 
     let mode = null;
     let grip = '';
@@ -319,8 +417,8 @@
     let swallowClick = false;
 
     const stop = () => {
-      window.removeEventListener('pointermove', onMove);
-      document.body.classList.remove('am-dragging', 'am-resizing');
+      win.removeEventListener('pointermove', onMove);
+      if (doc.body) doc.body.classList.remove('am-dragging', 'am-resizing');
       // A drag that actually moved the window must not also press whatever was
       // under the pointer - otherwise grabbing the window by its Hide button
       // hides the panel. The click is dispatched after pointerup, so flagging it
@@ -337,22 +435,22 @@
       grip = g || '';
       startX = ev.clientX;
       startY = ev.clientY;
-      startRect = amLiveRect();
+      startRect = panel.getBoundingClientRect();
       moved = false;
       swallowClick = false;
-      document.body.classList.add(m === 'move' ? 'am-dragging' : 'am-resizing');
-      window.addEventListener('pointermove', onMove);
-      window.addEventListener('pointerup', stop, { once: true });
-      window.addEventListener('pointercancel', stop, { once: true });
+      if (doc.body) doc.body.classList.add(m === 'move' ? 'am-dragging' : 'am-resizing');
+      win.addEventListener('pointermove', onMove);
+      win.addEventListener('pointerup', stop, { once: true });
+      win.addEventListener('pointercancel', stop, { once: true });
       // preventDefault() is skipped for a move on purpose. It suppresses the
-      // compatibility mouse events, which would take the click on Clear and Hide
+      // compatibility mouse events, which would take the click on the buttons
       // down with it. Text selection is stopped in CSS instead, and the grips
       // have nothing to lose.
       if (m === 'resize') ev.preventDefault();
     };
 
     function onMove(ev) {
-      if (!mode) return;
+      if (!mode || !isActive()) return;
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
       // A few pixels of slop so that clicking the header does not shift it.
@@ -399,28 +497,234 @@
       el.addEventListener('pointerdown', (ev) => begin(ev, 'resize', el.dataset.amGrip));
     });
 
-    // A viewport that shrinks under a saved position would otherwise strand the
-    // window off-screen with no way to drag it back.
-    window.addEventListener('resize', () => {
-      if (!panel.classList.contains('hidden')) amApply(amClamp(amLiveRect()));
+    // Delegated so a click on a row copies its curl, whichever document the row
+    // is in. Registered here rather than in init() because the floating console
+    // is a clone that did not exist at startup.
+    panel.addEventListener('click', (ev) => {
+      const row = ev.target && ev.target.closest && ev.target.closest('[data-log-index]');
+      if (row) copyCurl(Number(row.dataset.logIndex));
     });
 
-    amRefresh();
+    const on = (id, fn) => {
+      const b = panel.querySelector('#' + id);
+      if (b) b.addEventListener('click', fn);
+    };
+    on('apiMonitorFloatBtn', () => (amIsFloating() ? amDock() : amFloat()));
+    on('apiMonitorClearBtn', clearApiLog);
+    on('apiMonitorHideBtn', () => {
+      if (amIsFloating()) amDock();
+      else {
+        panel.classList.add('hidden');
+        amUpdateToggle(false);
+      }
+    });
+
+    // A viewport that shrinks under a saved position would otherwise strand the
+    // window off-screen with no way to drag it back. While floating there is
+    // nothing to do: the panel is sized to the window by CSS, so it follows the
+    // window's own resize for free.
+    win.addEventListener('resize', () => {
+      if (!isActive() || panel.classList.contains('hidden')) return;
+      if (amIsFloating()) return;
+      amApply(amClamp(amLiveRect()));
+    });
+  }
+
+  function amInitWindow() {
+    const panel = amDockedPanel();
+    if (!panel) return;
+    amWirePanel(panel);
+    // A console that was detached when the page was last closed cannot be
+    // reopened on load: a popup has to be opened by a click. It stays out of the
+    // way and the tab button offers the click that brings it back.
+    const detached = amReadFlag();
+    if (detached) panel.classList.add('hidden');
+    amUpdateToggle(detached);
+    if (!detached) amRefresh();
+  }
+
+  // ==========================================================================
+  // POPPING THE CONSOLE OUT INTO ITS OWN WINDOW
+  //
+  // The panel markup is *cloned* into the new document rather than moved. Moving
+  // it would work, but the clone is far harder to get wrong: the docked panel
+  // stays intact and hidden, so closing the window is a matter of revealing it
+  // again rather than rescuing a node from a document that is being destroyed.
+  // ==========================================================================
+
+  /** Re-point the page's tab button at wherever the console actually is. */
+  function amUpdateToggle(detached) {
+    const toggle = document.getElementById('apiMonitorToggle');
+    if (!toggle) return;
+    const label = document.getElementById('apiMonitorToggleLabel');
+    if (label) {
+      // A popup cannot be reopened without a user gesture, so when the console
+      // was detached at load time the tab has to offer the click that brings it
+      // back.
+      label.textContent = detached ? 'API Monitor · reopen' : 'API Monitor';
+    }
+    toggle.classList.toggle('is-detached', !!detached);
+  }
+
+  /** Button captions and chrome for docked vs floating. */
+  function amSetChrome(floating) {
+    const docked = amDockedPanel();
+    [docked, _amRoot].filter(Boolean).forEach((root) => {
+      const fl = root.querySelector('#apiMonitorFloatBtn');
+      if (fl) {
+        fl.textContent = floating ? 'Dock' : 'Pop out';
+        fl.title = floating
+          ? 'Move the console back into the page'
+          : 'Open the console in a window of its own';
+      }
+      // Nothing to Hide when the window *is* the console: closing it is how you
+      // dismiss it, and closing docks the console back into the page.
+      const hide = root.querySelector('#apiMonitorHideBtn');
+      if (hide) hide.style.display = floating ? 'none' : '';
+      const foot = root.querySelector('.api-monitor-foot');
+      if (foot && foot.lastElementChild) {
+        foot.lastElementChild.textContent = floating
+          ? 'This is a separate window · Dock to move it back'
+          : 'Drag to move · edges to resize · click a row for curl';
+      }
+    });
+    amUpdateToggle(floating);
+  }
+
+  function amFloat() {
+    if (_amFloatWin && !_amFloatWin.closed) {
+      try { _amFloatWin.focus(); } catch (_) { /* ignore */ }
+      return;
+    }
+    const docked = amDockedPanel();
+    if (!docked) return;
+
+    let w = null;
+    try {
+      w = window.open('', AM_FLOAT_NAME, 'popup=yes,width=700,height=520,left=140,top=110');
+    } catch (_) {
+      w = null;
+    }
+    if (!w) {
+      amToast('Your browser blocked the console window - allow pop-ups for this page', 'warning', 5000);
+      return;
+    }
+
+    const doc = w.document;
+    doc.open();
+    doc.write('<!doctype html><html><head><meta charset="utf-8">'
+      + '<title>EchoGPT API Console</title></head>'
+      + '<body class="am-floating"></body></html>');
+    doc.close();
+
+    // Copy the page's own stylesheets across instead of naming URLs here, so the
+    // console window cannot drift away from the app's styling. The new document
+    // is about:blank, which has no base URL to resolve a relative path against,
+    // so the resolved absolute href is what gets used.
+    Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).forEach((l) => {
+      const copy = doc.createElement('link');
+      copy.rel = 'stylesheet';
+      copy.href = l.href;
+      doc.head.appendChild(copy);
+    });
+
+    _amFloatWin = w;
+    // The clone, wired and hidden-class-free. _amRoot must be set before any
+    // geometry or render call, because those resolve through it.
+    const clone = doc.importNode(docked, true);
+    clone.id = 'apiMonitorPanel';
+    clone.classList.remove('hidden');
+    clone.classList.add('is-floating');
+    // The clone carries the docked panel's geometry in its style attribute.
+    // Clear it: while floating, CSS sizes the panel to the window, and any
+    // inline geometry would override that.
+    clone.removeAttribute('style');
+    _amRoot = clone;
+    doc.body.appendChild(clone);
+
+    docked.classList.add('hidden');
+    amWirePanel(clone);
+    amSetChrome(true);
+    amSetFlag(true);
+    setApiMonitorHost();
+    renderApiLog();
+
+    // The user can close this with the title-bar X. Put the console back in the
+    // page rather than leaving it in a document that is about to die.
+    try {
+      w.addEventListener('beforeunload', amOnFloatClosed);
+    } catch (_) { /* ignore */ }
+  }
+
+  function amDock() {
+    const w = _amFloatWin;
+    _amFloatWin = null;
+    if (w) {
+      try {
+        w.removeEventListener('beforeunload', amOnFloatClosed);
+        w.close();
+      } catch (_) { /* ignore */ }
+    }
+    const docked = amDockedPanel();
+    if (!docked) return;
+    // Back to resolving through the page's own panel.
+    _amRoot = null;
+    docked.classList.remove('hidden');
+    docked.classList.remove('is-floating');
+    amSetChrome(false);
+    amSetFlag(false);
+    amApply(amClamp(amSaved() || amDefaultRect()));
+    setApiMonitorHost();
+    renderApiLog();
+  }
+
+  function amOnFloatClosed() {
+    // Runs while the popup's document is being torn down, so it defers the
+    // actual hand-back by a tick.
+    setTimeout(() => {
+      if (_amFloatWin && _amFloatWin.closed) _amFloatWin = null;
+      amDock();
+    }, 0);
+  }
+
+  /** Toasts have to land in the console's own document or they are off-screen. */
+  function amToast(message, type, duration) {
+    return showToast(message, type, duration, amDoc());
   }
 
   function toggleApiMonitor() {
-    const { panel } = apiMonitorEls();
+    // While the console is in its own window the page tab re-focuses it, or
+    // brings it back if it was closed, rather than toggling a panel that is not
+    // on screen.
+    // The flag covers the reload case: the console is neither floating nor
+    // docked, but the tab is offering to bring it back.
+    if (amIsFloating() || amReadFlag()) {
+      amFloat();
+      return;
+    }
+    const panel = amDockedPanel();
     if (!panel) return;
     panel.classList.toggle('hidden');
     // Re-apply geometry on the way in: the viewport may have changed while the
     // panel was closed, and a hidden panel has no rect to correct from.
     if (!panel.classList.contains('hidden')) amRefresh();
+    amUpdateToggle(false);
     setApiMonitorHost();
   }
 
   function clearApiLog() {
     apiLog.length = 0;
     renderApiLog();
+  }
+
+  // The console window's controls, exported for the console and for anything
+  // driving it from a keyboard shortcut.
+  function floatApiMonitor() {
+    amFloat();
+  }
+
+  function dockApiMonitor() {
+    if (amIsFloating()) amDock();
   }
 
   function copyCurl(index) {
@@ -431,9 +735,14 @@
     if (e.token) parts.push(`-H 'Authorization: Bearer ${e.token}'`);
     if (e.body) parts.push(`-H 'Content-Type: application/json'`, `-d '${e.body}'`);
     const cmd = parts.join(' \\\n  ');
-    const done = () => showToast('curl command copied to clipboard', 'info', 2200);
-    if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(cmd).then(done, () => fallbackCopy(cmd, done));
+    const done = () => amToast('curl command copied to clipboard', 'info', 2200);
+    // Ask the console's own window for the clipboard, not the page's. The async
+    // clipboard API insists on transient user activation, and the click that got
+    // us here belongs to the console window, not the one running this code.
+    const w = amWin();
+    const clip = w.navigator && w.navigator.clipboard;
+    if (clip && clip.writeText) {
+      clip.writeText(cmd).then(done, () => fallbackCopy(cmd, done));
     } else {
       fallbackCopy(cmd, done);
     }
@@ -442,17 +751,23 @@
   function fallbackCopy(text, done) {
     // execCommand is the only option on non-HTTPS origins, where the async
     // clipboard API is unavailable.
-    const ta = document.createElement('textarea');
+    const doc = amDoc();
+    const ta = doc.createElement('textarea');
     ta.value = text;
     ta.style.position = 'fixed';
     ta.style.opacity = '0';
-    document.body.appendChild(ta);
+    doc.body.appendChild(ta);
     ta.select();
+    let ok = false;
     try {
-      document.execCommand('copy');
-      done();
+      ok = doc.execCommand('copy');
     } catch (_) {
-      showToast('Could not copy automatically - see console', 'warning', 4000);
+      ok = false;
+    }
+    if (ok) {
+      done();
+    } else {
+      amToast('Could not copy automatically - see console', 'warning', 4000);
       // eslint-disable-next-line no-console
       console.log('[EchoGPT] curl command:\n' + text);
     }
@@ -534,13 +849,18 @@
   // =========================================================================
   // TOAST NOTIFICATION SYSTEM
   // =========================================================================
-  let _toastContainer = null;
+  // One container per document. The console window is a second document, and a
+  // toast anchored to the page's body would be invisible while the user is
+  // looking at the console, which is where the message came from.
+  const _toastContainers = new Map();
 
-  function getToastContainer() {
-    if (!_toastContainer) {
-      _toastContainer = document.createElement('div');
-      _toastContainer.id = 'toastContainer';
-      _toastContainer.style.cssText = [
+  function getToastContainer(doc) {
+    const d = doc || document;
+    let c = _toastContainers.get(d);
+    if (!c || !c.isConnected) {
+      c = d.createElement('div');
+      c.id = 'toastContainer';
+      c.style.cssText = [
         'position:fixed',
         'bottom:24px',
         'right:24px',
@@ -551,14 +871,16 @@
         'pointer-events:none',
         'max-width:360px',
       ].join(';');
-      document.body.appendChild(_toastContainer);
+      d.body.appendChild(c);
+      _toastContainers.set(d, c);
     }
-    return _toastContainer;
+    return c;
   }
 
-  function showToast(message, type = 'success', duration = 3500) {
-    const container = getToastContainer();
-    const toast = document.createElement('div');
+  function showToast(message, type = 'success', duration = 3500, doc) {
+    const d = doc || document;
+    const container = getToastContainer(d);
+    const toast = d.createElement('div');
 
     const icons = {
       success: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>',
@@ -603,8 +925,13 @@
     `;
 
     container.appendChild(toast);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
+    // That window's own rAF, not the page's: a backgrounded tab has its frames
+    // throttled to a crawl, so the toast would never animate in while the
+    // console window is the one being looked at.
+    const raf = (d.defaultView && d.defaultView.requestAnimationFrame)
+      || ((fn) => setTimeout(fn, 16));
+    raf(() => {
+      raf(() => {
         toast.style.transform = 'translateX(0)';
         toast.style.opacity = '1';
       });
@@ -745,16 +1072,10 @@
     setApiMonitorHost();
     // Open the monitor by default: the first thing a reviewer should see is
     // `GET /health 200` arriving, not an empty panel.
-    const panel = document.getElementById('apiMonitorPanel');
-    if (panel) panel.classList.remove('hidden');
+    document.getElementById('apiMonitorPanel')?.classList.remove('hidden');
+    // Rows are wired by delegation inside amWirePanel, not here, so the console
+    // behaves the same whichever document it is in.
     amInitWindow();
-    const monitorList = document.getElementById('apiMonitorList');
-    if (monitorList) {
-      monitorList.addEventListener('click', (ev) => {
-        const row = ev.target.closest('[data-log-index]');
-        if (row) copyCurl(Number(row.dataset.logIndex));
-      });
-    }
     checkHealth();
     renderUserUI();
     setupEventListeners();
@@ -2072,6 +2393,8 @@
     closeApiModal,
     saveApiBaseUrl,
     toggleApiMonitor,
+    floatApiMonitor,
+    dockApiMonitor,
     clearApiLog,
     retryHealth,
     // Admin

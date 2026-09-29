@@ -1976,6 +1976,44 @@ body.am-resizing * {
 }
 .api-monitor-btn:hover { background: #334155; color: #e2e8f0; }
 
+/* The console in a window of its own.
+   `body` is a full-page app shell (flex column, 100vh, light background), which
+   is wrong for a window that contains nothing but the console, so those are
+   undone here. */
+body.am-floating {
+  background: #0b1220;
+  display: block;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* In that window the panel is not a floating panel, it *is* the window: no
+   rounded corners, no drop shadow, and no resize grips - the window's own edges
+   are the size control, which is what an undocked devtools panel does. */
+.api-monitor-panel.is-floating {
+  border-radius: 0;
+  box-shadow: none;
+  /* The window is the console, so the window's own edges are the size control.
+     CSS owns the geometry here rather than JS: a window that has just been
+     opened still reports a zero-sized viewport, and clamping against that
+     would collapse the panel to its minimum size in the corner. */
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  height: auto;
+}
+.api-monitor-panel.is-floating .am-grip { display: none; }
+
+/* The tab button, when the console is detached and the tab is offering to bring
+   it back. A popup cannot be reopened without a click, so this is the affordance. */
+.api-monitor-toggle.is-detached {
+  background: #1e1b4b;
+  box-shadow: 0 -4px 18px rgba(99, 102, 241, 0.4);
+}
+.api-monitor-toggle.is-detached .am-pulse { background: #6366f1; }
+
 .api-monitor-list {
   flex: 1;
   overflow-y: auto;
