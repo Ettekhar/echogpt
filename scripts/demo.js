@@ -224,6 +224,32 @@ function run(cmd, args, label) {
   });
 }
 
+/**
+ * Ask the database what the seed produced, so a partially-applied seed is
+ * visible instead of being reported as success. Resolves to null when the
+ * report cannot be produced - this is a diagnostic, never a reason to fail.
+ */
+function seedReport() {
+  return new Promise((resolve) => {
+    const p = spawn(process.execPath, [path.join(__dirname, 'seed-report.js')], {
+      cwd: ROOT,
+      stdio: ['ignore', 'pipe', 'ignore'],
+      env: process.env,
+    });
+    let out = '';
+    p.stdout.on('data', (b) => (out += b.toString()));
+    p.on('error', () => resolve(null));
+    p.on('exit', (code) => {
+      if (code !== 0) return resolve(null);
+      try {
+        resolve(JSON.parse(out.trim().split(/\r?\n/).pop()));
+      } catch {
+        resolve(null);
+      }
+    });
+  });
+}
+
 async function freePortIfBusy(port) {
   if (!(await isPortInUse(port))) return;
   warn(`port ${port} is busy — stopping whatever is holding it`);
@@ -384,6 +410,28 @@ async function main() {
   try {
     await run(NPM, ['run', 'seed'], 'seed');
     ok('seeded');
+
+    // A zero exit code only proves the demo accounts exist. Confirm the rest of
+    // the seed landed too, because "seeded" followed by an empty dashboard is
+    // the failure a reviewer is least likely to diagnose and most likely to
+    // blame on the project.
+    const report = await seedReport();
+    if (report) {
+      if (report.conversations === 0) {
+        const optedOut = String(envValue('SEED_DEMO_DATA')).toLowerCase() === 'false';
+        if (optedOut) {
+          ok('sample activity skipped (SEED_DEMO_DATA=false) — dashboard will be empty');
+        } else {
+          warn(
+            `no sample conversations were created (${report.users} users, ${report.conversations} conversations) — the admin dashboard will show empty charts`,
+          );
+        }
+      } else {
+        ok(
+          `sample activity: ${report.conversations} conversations, ${report.messages} messages, ${report.usageLogs} usage records`,
+        );
+      }
+    }
   } catch (e) {
     warn(`seeding failed (${e.message}) — the app still runs, but there is nothing to log in with`);
   }

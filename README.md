@@ -15,7 +15,9 @@ npm run demo
 That is the entire setup. No `.env` to write, no database to provision, no API key
 to obtain, no account to create. `npm run demo` generates a working `.env` with
 randomly generated secrets, starts an embedded PostgreSQL, applies migrations,
-seeds the demo accounts, serves the UI, and opens your browser.
+seeds the demo accounts along with a little sample chat history, serves the UI,
+and opens your browser. The setup verifies what actually landed in the database
+and tells you, rather than reporting success on the strength of an exit code.
 
 Then open **<http://localhost:3001/>** and sign in:
 

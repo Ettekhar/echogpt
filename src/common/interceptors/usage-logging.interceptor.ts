@@ -17,13 +17,30 @@ export class UsageLoggingInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       tap({
-        next: () => this.log(context, request, start, 200),
-        error: (err) => this.log(context, request, start, err?.status || 500),
+        next: () => this.maybeLog(request, start, 200),
+        error: (err) => this.maybeLog(request, start, err?.status || 500),
       }),
     );
   }
 
-  private log(context: ExecutionContext, request: any, start: number, statusCode: number) {
+  /**
+   * Liveness probes are not user API traffic, so they are not logged.
+   *
+   * `npm run demo` has to start the app before it can migrate (migrating needs
+   * PostgreSQL, which dev.js starts first), and it polls /health to know when the
+   * app is up. Those polls land before the schema exists, so every fresh install
+   * printed a red `relation "public.ApiUsageLog" does not exist` with the
+   * offending INSERT - alarming noise in the one place a reviewer is looking to
+   * decide whether the project works. Excluding the probe removes the cause
+   * rather than hiding the message.
+   */
+  private maybeLog(request: any, start: number, statusCode: number) {
+    const path = String(request.originalUrl || request.url || '');
+    if (/\/health(\?|$)/.test(path)) return;
+    this.log(request, start, statusCode);
+  }
+
+  private log(request: any, start: number, statusCode: number) {
     const durationMs = Date.now() - start;
     const userId = request.user?.id ?? null;
 

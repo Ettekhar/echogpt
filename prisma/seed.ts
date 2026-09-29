@@ -86,41 +86,46 @@ async function main() {
   // Provider seeding is opt-in: only seed a real key when one is actually
   // provided. Storing a placeholder key only produces confusing failed health
   // checks later.
+  //
+  // Note this deliberately does not return early when there is no key. It used
+  // to, and that silently skipped the sample activity below - which is exactly
+  // what a reviewer running `npm install && npm run demo` without an API key
+  // gets, so their dashboard came up empty. Whether a provider exists and
+  // whether the install looks populated are unrelated questions.
   const rawApiKey = process.env.GEMINI_API_KEY;
   if (!rawApiKey) {
     console.log(
       'Skipping provider seed: set GEMINI_API_KEY in .env to pre-load a Gemini provider.',
     );
-    return;
-  }
-
-  // Both seeded accounts get a working provider. The demo account used to have
-  // none, which made "log in as demo and try the chat" fail with a 404
-  // ("No enabled AI provider configured") even though the account was
-  // advertised in the README.
-  for (const [owner, label] of [
-    [admin, 'admin user'],
-    [demo, 'demo user'],
-  ] as const) {
-    try {
-      const encKey = encryptSecret(rawApiKey);
-      await prisma.aiProvider.deleteMany({ where: { userId: owner.id } });
-      await prisma.aiProvider.create({
-        data: {
-          userId: owner.id,
-          name: 'GEMINI',
-          label: 'Google Gemini (Flash)',
-          model: 'gemini-3.8-flash',
-          encryptedApiKey: encKey,
-          isEnabled: true,
-          isDefault: true,
-          lastHealthCheck: new Date(),
-          lastHealthy: true,
-        },
-      });
-      console.log(`Seeded Gemini provider (gemini-3.8-flash) for ${label}`);
-    } catch (err) {
-      console.log(`Note: could not seed Gemini provider for ${label}:`, err.message);
+  } else {
+    // Both seeded accounts get a working provider. The demo account used to
+    // have none, which made "log in as demo and try the chat" fail with a 404
+    // ("No enabled AI provider configured") even though the account was
+    // advertised in the README.
+    for (const [owner, label] of [
+      [admin, 'admin user'],
+      [demo, 'demo user'],
+    ] as const) {
+      try {
+        const encKey = encryptSecret(rawApiKey);
+        await prisma.aiProvider.deleteMany({ where: { userId: owner.id } });
+        await prisma.aiProvider.create({
+          data: {
+            userId: owner.id,
+            name: 'GEMINI',
+            label: 'Google Gemini (Flash)',
+            model: 'gemini-3.8-flash',
+            encryptedApiKey: encKey,
+            isEnabled: true,
+            isDefault: true,
+            lastHealthCheck: new Date(),
+            lastHealthy: true,
+          },
+        });
+        console.log(`Seeded Gemini provider (gemini-3.8-flash) for ${label}`);
+      } catch (err) {
+        console.log(`Note: could not seed Gemini provider for ${label}:`, err.message);
+      }
     }
   }
 
